@@ -102,6 +102,10 @@ class BiliUPVideoInfoFetcher:
                 # 检查数据结构
                 if 'data' not in data or 'list' not in data['data'] or 'vlist' not in data['data']['list']:
                     break  
+                
+                # 获取分页信息 计算总页数
+                page_info = data['data']['page']
+                total_pages = (page_info['count'] + page_size - 1) // page_size  
 
                 videos = data['data']['list']['vlist']
                 if not videos:
@@ -109,6 +113,10 @@ class BiliUPVideoInfoFetcher:
 
                 all_videos.extend(videos)
                 
+                # 分页控制
+                if page >= total_pages:
+                    break  # 如果已经是最后一页，则退出循环
+
                 page += 1  # 翻页
                 time.sleep(1)  # 避免请求过快
 
