@@ -66,6 +66,28 @@ class BiliUPVideoInfoFetcher:
             'Cookie': f"SESSDATA={os.getenv('SESSDATA')}"  # 从环境变量获取 SESSDATA
         }
 
+    def get_cid_by_bvid(self, bvid: str) -> list[dict]:
+        """通过bvid获取视频所有分P的cid信息"""
+        params = {'bvid': bvid}
+        try:
+            response = requests.get(
+                url="https://api.bilibili.com/x/player/pagelist",
+                headers=self.headers,
+                params=params,
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get('code') != 0:
+                print(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
+                return []
+
+            return data.get('data', [])
+        except requests.RequestException as e:
+            print(f"获取分P信息失败: {e}")
+            return []
+
     def fetch_all_videos(self) -> list[dict]:
         """获取目标UP主的所有视频信息"""
         img_key, sub_key = WbiSigner.get_wbi_keys()  # 获取 WBI 签名秘钥
@@ -111,6 +133,12 @@ class BiliUPVideoInfoFetcher:
                 if not videos:
                     break  
 
+                # 获取每个视频的详细信息
+                for video in videos:
+                    parts = self.get_cid_by_bvid(video['bvid'])
+                    video['parts'] = parts # 添加分P信息到视频数据
+                    time.sleep(0.5)  # 避免请求过快
+
                 all_videos.extend(videos)
                 
                 # 分页控制
@@ -133,8 +161,8 @@ class BiliUPVideoInfoFetcher:
             return
         
         # 需要保存的字段
-        fields = ['title', 'aid', 'bvid', 'created', 'play', 'video_review', 
-                  'comment', 'length', 'pic', 'description']
+        fields = ['title', 'aid', 'bvid', 'cid', 'parts_count', 'created', 'play', 
+                  'video_review', 'comment', 'length', 'pic', 'description']
 
         try:
             with open(filename, mode='w', newline='', encoding='utf-8-sig') as file:
@@ -143,9 +171,27 @@ class BiliUPVideoInfoFetcher:
                 
                 for video in videos:
                     # 时间戳转换
-                    video['created'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(video['created']))
+                    created_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(video['created']))
 
-                    row = {field: video.get(field, '') for field in fields}
+                    # 获取分P信息与其对应的CID
+                    parts = video.get('parts', [])
+                    parts_count = len(parts)
+                    all_cids = [str(part['cid']) for part in parts]
+
+                    row = {
+                        'title': video.get('title', ''),
+                        'aid': video.get('aid', ''),
+                        'bvid': video.get('bvid', ''),
+                        'cid': '; '.join(all_cids),  # 分P的CID合并为字符串
+                        'parts_count': parts_count,
+                        'created': created_time,
+                        'play': video.get('play', ''),
+                        'video_review': video.get('video_review', ''),
+                        'comment': video.get('comment', ''),
+                        'length': video.get('length', ''),
+                        'pic': video.get('pic', ''),
+                        'description': video.get('description', '')
+                    }
                     writer.writerow(row)
             print(f"成功保存 {len(videos)} 条视频信息到 {filename}")
         except IOError as e:
