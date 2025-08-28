@@ -1,13 +1,17 @@
 import time
 import requests
 import csv
+import logging
 from wbi_signer import WbiSigner
 
+
+logger = logging.getLogger(__name__)
 
 class BiliUPVideoInfoFetcher:
     """B站指定UP主视频信息获取类"""
     def __init__(self, mid: str, sessdata: str):
         if not sessdata or not sessdata.strip():
+            logger.error("SESSDATA是必需的参数，不能为空")
             raise ValueError("SESSDATA是必需的参数，不能为空")
         
         self.mid = mid
@@ -31,12 +35,12 @@ class BiliUPVideoInfoFetcher:
             data = response.json()
 
             if data.get('code') != 0:
-                print(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
+                logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
                 return []
 
             return data.get('data', [])
         except requests.RequestException as e:
-            print(f"获取分P信息失败: {e}")
+            logger.error(f"获取分P信息失败: {e}")
             return []
 
     def fetch_all_videos(self) -> list[dict]:
@@ -69,7 +73,7 @@ class BiliUPVideoInfoFetcher:
 
                 # 检查返回状态
                 if data.get('code') != 0:
-                    print(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
+                    logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
                     break
 
                 # 检查数据结构
@@ -97,10 +101,10 @@ class BiliUPVideoInfoFetcher:
                     break  # 如果已经是最后一页，则退出循环
 
                 page += 1  # 翻页
-                time.sleep(1)  # 避免请求过快
+                time.sleep(0.5)  # 避免请求过快
 
             except requests.RequestException as e:
-                print(f"请求失败: {e}")
+                logger.error(f"请求失败: {e}")
                 break
 
         return all_videos
@@ -108,7 +112,7 @@ class BiliUPVideoInfoFetcher:
     def save_to_csv(self, videos: list[dict], filename: str):
         """将视频信息保存到 CSV 文件"""
         if not videos:
-            print("没有视频数据可保存")
+            logger.warning("没有视频数据可保存")
             return
         
         # 需要保存的字段
@@ -144,6 +148,6 @@ class BiliUPVideoInfoFetcher:
                         'description': video.get('description', '')
                     }
                     writer.writerow(row)
-            print(f"成功保存 {len(videos)} 条视频信息到 {filename}")
+            logger.info(f"成功保存 {len(videos)} 条视频信息到 {filename}")
         except IOError as e:
-            print(f"保存到CSV失败: {e}")
+            logger.error(f"保存到CSV失败: {e}")
