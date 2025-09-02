@@ -1,111 +1,121 @@
 import time
-import requests
 import csv
+import asyncio
+import aiohttp
 import logging
 from wbi_signer import WbiSigner
 
 
 logger = logging.getLogger(__name__)
 
-class BiliUPVideoInfoFetcher:
-    """B站指定UP主视频信息获取类"""
-    def __init__(self, mid: str, sessdata: str):
+class AsyncBiliUPVideoInfoFetcher:
+    """B站指定UP主视频信息获取类(异步版)"""
+    def __init__(self, mid: str, sessdata: str, max_concurrent: int = 5):
         if not sessdata or not sessdata.strip():
             logger.error("SESSDATA是必需的参数，不能为空")
             raise ValueError("SESSDATA是必需的参数，不能为空")
         
         self.mid = mid
-        self.sessdata = sessdata  
+        self.sessdata = sessdata
+        self.max_concurrent = max_concurrent
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
             'Cookie': f"SESSDATA={sessdata}"  
         }
 
-    def get_cid_by_bvid(self, bvid: str) -> list[dict]:
-        """通过bvid获取视频所有分P的cid信息"""
+    async def get_cid_by_bvid(self, session: aiohttp.ClientSession, bvid: str) -> list[dict]:
+        """通过bvid获取视频所有分P的cid信息(异步版)"""
         params = {'bvid': bvid}
         try:
-            response = requests.get(
+            async with session.get(
                 url="https://api.bilibili.com/x/player/pagelist",
-                headers=self.headers,
                 params=params,
-                timeout=5
-            )
-            response.raise_for_status()
-            data = response.json()
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
 
-            if data.get('code') != 0:
-                logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
-                return []
+                if data.get('code') != 0:
+                    logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
+                    return []
 
-            return data.get('data', [])
-        except requests.RequestException as e:
+                return data.get('data', [])
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.error(f"获取分P信息失败: {e}")
             return []
 
-    def fetch_all_videos(self) -> list[dict]:
-        """获取目标UP主的所有视频信息"""
+    async def fetch_all_videos(self) -> list[dict]:
+        """获取目标UP主的所有视频信息(异步版)"""
         img_key, sub_key = WbiSigner.get_wbi_keys()  # 获取 WBI 签名秘钥
 
         all_videos = []
         page = 1
         page_size = 50  # 每页视频数量
 
-        while True:
-            params = {
-                'mid': self.mid,
-                'pn': page,
-                'ps': page_size
-            }
+        # 创建aiohttp会话
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            while True:
+                params = {
+                    'mid': self.mid,
+                    'pn': page,
+                    'ps': page_size
+                }
 
-            # 添加 WBI 签名
-            signed_params = WbiSigner.enc_wbi(params, img_key, sub_key)
+                # 添加 WBI 签名
+                signed_params = WbiSigner.enc_wbi(params, img_key, sub_key)
 
-            try:
-                response = requests.get(
-                    url="https://api.bilibili.com/x/space/wbi/arc/search",
-                    headers=self.headers,
-                    params=signed_params,
-                    timeout=5
-                )
-                response.raise_for_status()
-                data = response.json()
+                try:
+                    async with session.get(
+                        url="https://api.bilibili.com/x/space/wbi/arc/search",
+                        params=signed_params,
+                        timeout=aiohttp.ClientTimeout(total=5)
+                    ) as response:
+                        response.raise_for_status()
+                        data = await response.json()
 
-                # 检查返回状态
-                if data.get('code') != 0:
-                    logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
+                        # 检查返回状态
+                        if data.get('code') != 0:
+                            logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
+                            break
+
+                        # 检查数据结构
+                        if 'data' not in data or 'list' not in data['data'] or 'vlist' not in data['data']['list']:
+                            break  
+                        
+                        # 获取分页信息 计算总页数
+                        page_info = data['data']['page']
+                        total_pages = (page_info['count'] + page_size - 1) // page_size  
+
+                        videos = data['data']['list']['vlist']
+                        if not videos:
+                            break  
+                        
+                        # 使用信号量控制并发数
+                        semaphore = asyncio.Semaphore(self.max_concurrent)
+
+                        async def get_video_info_with_parts(video):
+                            async with semaphore:
+                                parts = await self.get_cid_by_bvid(session, video['bvid'])
+                                video['parts'] = parts
+                                await asyncio.sleep(0.1)  # 避免请求过快
+                                return video
+
+                        # 并发获取所有视频的分P信息
+                        tasks = [get_video_info_with_parts(video) for video in videos]
+                        videos = await asyncio.gather(*tasks)
+
+                        all_videos.extend(videos)
+                        
+                        # 分页控制
+                        if page >= total_pages:
+                            break  # 如果已经是最后一页，则退出循环
+
+                        page += 1  # 翻页
+                        await asyncio.sleep(0.3)  # 翻页延迟
+
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    logger.error(f"请求失败: {e}")
                     break
-
-                # 检查数据结构
-                if 'data' not in data or 'list' not in data['data'] or 'vlist' not in data['data']['list']:
-                    break  
-                
-                # 获取分页信息 计算总页数
-                page_info = data['data']['page']
-                total_pages = (page_info['count'] + page_size - 1) // page_size  
-
-                videos = data['data']['list']['vlist']
-                if not videos:
-                    break  
-
-                # 获取每个视频的详细信息
-                for video in videos:
-                    parts = self.get_cid_by_bvid(video['bvid'])
-                    video['parts'] = parts # 添加分P信息到视频数据
-                    time.sleep(0.5)  # 避免请求过快
-
-                all_videos.extend(videos)
-                
-                # 分页控制
-                if page >= total_pages:
-                    break  # 如果已经是最后一页，则退出循环
-
-                page += 1  # 翻页
-                time.sleep(0.5)  # 避免请求过快
-
-            except requests.RequestException as e:
-                logger.error(f"请求失败: {e}")
-                break
 
         return all_videos
     

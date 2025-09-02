@@ -1,8 +1,8 @@
 import os
-import time
 import logging
+import asyncio
 from dotenv import load_dotenv
-from video_fetcher import BiliUPVideoInfoFetcher
+from video_fetcher import AsyncBiliUPVideoInfoFetcher
 from database import VideoDatabase
 
 
@@ -14,7 +14,7 @@ def setup_logging():
     handlers=[logging.StreamHandler()]
 )
 
-def main():
+async def main():
     setup_logging()
     logger = logging.getLogger(__name__)
 
@@ -37,10 +37,10 @@ def main():
             logger.info(f"正在处理UP主: {up_mid}")
 
             # 创建视频获取器实例
-            fetcher = BiliUPVideoInfoFetcher(mid=up_mid, sessdata=sessdata)
+            fetcher = AsyncBiliUPVideoInfoFetcher(mid=up_mid, sessdata=sessdata)
 
-            # 获取视频信息
-            videos = fetcher.fetch_all_videos()
+            # 获取视频信息(异步方法)
+            videos = await fetcher.fetch_all_videos()
             logger.info(f"获取到 {len(videos)} 个视频")
 
             if videos:
@@ -52,7 +52,7 @@ def main():
 
             if up_mid != up_mids[-1]:
                 logger.info("等待10秒后处理下一个UP主...")
-                time.sleep(10)
+                await asyncio.sleep(10)
 
         # 查询并显示数据库中的视频总数
         total_count = 0
@@ -73,4 +73,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
