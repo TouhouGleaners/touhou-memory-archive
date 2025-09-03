@@ -3,6 +3,7 @@ from hashlib import md5
 import urllib.parse
 import time
 import requests
+from typing import Optional, Tuple
 
 
 class WbiSigner:
@@ -13,6 +14,11 @@ class WbiSigner:
         61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
         36, 20, 34, 44, 52
     ]
+
+    # 类变量，用于在单次运行程序时缓存密钥
+    _cached_keys: Optional[Tuple[str, str]] = None
+    _cached_time: float = 0
+    CACHE_DURATION = 24 * 60 * 60  # 缓存时长为24小时(实际情况下单次运行程序不会超过这个时间)
 
     @staticmethod
     def get_mixin_key(orig: str):
@@ -37,9 +43,17 @@ class WbiSigner:
         params['w_rid'] = wbi_sign
         return params
 
-    @staticmethod
-    def get_wbi_keys() -> tuple[str, str]:
-        """获取最新的 img_key 和 sub_key"""
+    @classmethod
+    def get_wbi_keys(cls) -> tuple[str, str]:
+        """获取最新的 img_key 和 sub_key，带缓存机制"""
+        current_time = time.time()
+        
+        # 如果缓存存在且未过期，直接返回缓存的键值
+        if (cls._cached_keys is not None and 
+            current_time - cls._cached_time < cls.CACHE_DURATION):
+            return cls._cached_keys
+
+        # 获取新的键值
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
             'Referer': 'https://www.bilibili.com/'
@@ -51,4 +65,9 @@ class WbiSigner:
         sub_url: str = json_content['data']['wbi_img']['sub_url']
         img_key = img_url.rsplit('/', 1)[1].split('.')[0]
         sub_key = sub_url.rsplit('/', 1)[1].split('.')[0]
-        return img_key, sub_key
+
+        # 更新缓存
+        cls._cached_keys = (img_key, sub_key)
+        cls._cached_time = current_time
+        
+        return cls._cached_keys
