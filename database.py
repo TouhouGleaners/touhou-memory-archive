@@ -1,11 +1,11 @@
 import sqlite3
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 class VideoDatabase:
     """视频信息数据库操作类"""
-    def __init__(self, db_path: str = "videoinfo.db"):
+    def __init__(self, db_path: str):
         self.db_path = db_path
         self._init_db()
 
@@ -13,6 +13,16 @@ class VideoDatabase:
         """初始化数据库表结构"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+
+        # 创建UP主信息表 ups
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ups (
+                mid BIGINTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                record_created_at INTEGER DEFAULT (strftime('%s', 'now')),
+                record_updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+                )
+            """)
 
         # 创建视频信息表 videos
         cursor.execute("""
@@ -28,10 +38,14 @@ class VideoDatabase:
                 length TEXT,
                 cover_url TEXT,
                 description TEXT,
-                up_mid TEXT NOT NULL,
+                up_mid BIGINTEGER NOT NULL,
+                is_touhou INTEGER DEFAULT 0, -- 0:未标记 1:自动标记 2:人工确认
+                is_alive BOOLEAN DEFAULT 1,
+                tags TEXT,  -- 存储JSON格式的标签数组
                 record_created_at INTEGER DEFAULT (strftime('%s', 'now')),
                 record_updated_at INTEGER DEFAULT (strftime('%s', 'now')),
-                UNIQUE(aid, bvid)
+                UNIQUE(aid, bvid),
+                FOREIGN KEY (up_mid) REFERENCES ups (mid)
                 )
             """)
         
@@ -52,9 +66,36 @@ class VideoDatabase:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_up_mid ON videos(up_mid)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_published_at ON videos(published_at)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_parts_video_id ON video_parts(video_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_is_touhou ON videos(is_touhou)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_is_alive ON videos(is_alive)')
 
         conn.commit()
         conn.close()
+
+    def save_up_info(self, mid: str, name: str) -> None:
+        """保存或更新UP主信息"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        current_time = int(time.time())
+
+        cursor.execute("""
+            INSERT OR REPLACE INTO ups (mid, name, record_updated_at)
+            VALUES (?, ?, ?)
+        """, (mid, name, current_time))
+
+        conn.commit()
+        conn.close()
+
+    def get_up_info(self, mid: str) -> Optional[Dict]:
+        """获取UP主信息"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT mid, name FROM ups WHERE mid = ?", (mid,))
+        result = cursor.fetchone()
+
+        conn.close()
+        return {'mid': result[0], 'name': result[1]} if result else None
 
     def save_videos(self, videos: List[Dict], up_mid: str) -> None:
         """保存视频信息至数据库"""
@@ -68,16 +109,36 @@ class VideoDatabase:
 
         for video in videos:
             # 检查视频是否已经存在
-            cursor.execute("SELECT id FROM videos WHERE aid = ?", (video['aid'],))
+            cursor.execute("SELECT id, is_touhou FROM videos WHERE aid = ?", (video['aid'],))
             existing_video = cursor.fetchone()
 
+            tags = video.get('tags', [])  
+        
+            # 过滤掉"发现《音乐名》"格式的标签
+            filtered_tags = []
+            for tag in tags:
+                if tag.startswith("发现《") and tag.endswith("》"):
+                    continue
+                filtered_tags.append(tag)
+            
+            # 检查是否为东方相关视频
+            if existing_video:
+                # 视频已存在，保留原有的is_touhou值
+                is_touhou = existing_video[1]
+            else:
+                # 新视频，根据标签自动判断
+                # 检查过滤后的标签中是否包含"东方"
+                has_touhou_tag = any('东方' in tag for tag in filtered_tags) if filtered_tags else False
+                is_touhou = 1 if has_touhou_tag else 0
+            
             if existing_video:
                 # 更新现有视频信息
                 video_id = existing_video[0]
                 cursor.execute("""
                     UPDATE videos
                     SET title = ?, play_count = ?, review_count = ?, comment_count = ?,
-                        length = ?, cover_url = ?, description = ?, record_updated_at = ?
+                        length = ?, cover_url = ?, description = ?, is_touhou = ?,
+                        tags = ?, record_updated_at = ?
                     WHERE aid = ?
                 """, (
                     video.get('title', ''),
@@ -87,6 +148,8 @@ class VideoDatabase:
                     video.get('length', ''),
                     video.get('pic', ''),
                     video.get('description', ''),
+                    is_touhou,
+                    ','.join(tags),
                     current_time,
                     video['aid']
                 ))
@@ -95,8 +158,8 @@ class VideoDatabase:
                 cursor.execute('''
                     INSERT INTO videos
                         (title, aid, bvid, published_at, play_count, review_count, comment_count,
-                        length, cover_url, description, up_mid, record_created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+                        length, cover_url, description, up_mid, is_touhou, tags, record_created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
                     ''', (
                         video.get('title', ''),
                         video['aid'],
@@ -109,6 +172,8 @@ class VideoDatabase:
                         video.get('pic', ''),
                         video.get('description', ''),
                         up_mid,
+                        is_touhou,
+                        ','.join(tags),
                         current_time
                     ))
                 video_id = cursor.lastrowid

@@ -10,18 +10,41 @@ logger = logging.getLogger(__name__)
 
 class AsyncBiliUPVideoInfoFetcher:
     """B站指定UP主视频信息获取类(异步版)"""
-    def __init__(self, mid: str, sessdata: str, max_concurrent: int = 5):
+    def __init__(self, mid: str, sessdata: str, db, max_concurrent: int = 5):
         if not sessdata or not sessdata.strip():
             logger.error("SESSDATA是必需的参数，不能为空")
             raise ValueError("SESSDATA是必需的参数，不能为空")
         
         self.mid = mid
         self.sessdata = sessdata
+        self.db = db
         self.max_concurrent = max_concurrent
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
             'Cookie': f"SESSDATA={sessdata}"  
         }
+
+    async def get_video_tags(self, session: aiohttp.ClientSession, bvid: str) -> list[str]:
+        """获取视频标签信息"""
+        try:
+            async with session.get(
+                url=f"https://api.bilibili.com/x/web-interface/view/detail/tag",
+                params={'bvid': bvid},
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+                if data.get('code') != 0:
+                    logger.error(f"获取视频标签失败: {data.get('message')}")
+                    return []
+                
+                # 提取所有tags
+                return [tag['tag_name'] for tag in data['data']]
+            
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error(f"获取视频标签失败: {e}")
+            return []
 
     async def get_cid_by_bvid(self, session: aiohttp.ClientSession, bvid: str) -> list[dict]:
         """通过bvid获取视频所有分P的cid信息(异步版)"""
@@ -89,19 +112,29 @@ class AsyncBiliUPVideoInfoFetcher:
                         videos = data['data']['list']['vlist']
                         if not videos:
                             break  
+
+                        # 从第一个视频获取UP主信息并保存（因为每个视频都包含相同的author信息）
+                        if videos and page == 1:
+                            first_video = videos[0]
+                            up_name = first_video.get('author', '')
+                            self.db.save_up_info(self.mid, up_name)
                         
                         # 使用信号量控制并发数
                         semaphore = asyncio.Semaphore(self.max_concurrent)
 
-                        async def get_video_info_with_parts(video):
+                        async def get_video_info_with_parts_and_tags(video):
                             async with semaphore:
+                                # 获取分P信息
                                 parts = await self.get_cid_by_bvid(session, video['bvid'])
                                 video['parts'] = parts
+                                # 获取标签信息
+                                tags = await self.get_video_tags(session, video['bvid'])
+                                video['tags'] = tags
                                 await asyncio.sleep(0.1)  # 避免请求过快
                                 return video
 
-                        # 并发获取所有视频的分P信息
-                        tasks = [get_video_info_with_parts(video) for video in videos]
+                        # 并发获取所有视频的分P信息和标签信息
+                        tasks = [get_video_info_with_parts_and_tags(video) for video in videos]
                         videos = await asyncio.gather(*tasks)
 
                         all_videos.extend(videos)

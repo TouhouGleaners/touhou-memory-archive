@@ -9,7 +9,7 @@ from database import VideoDatabase
 def setup_logging():
     logging.basicConfig(
     level=logging.INFO,
-    format="[%(asctime)s][%(levelname)s]%(message)s",
+    format="[%(asctime)s][%(levelname)s]%(message)s (Line: %(lineno)d)[%(filename)s]",
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler()]
 )
@@ -37,9 +37,9 @@ async def main():
             logger.info(f"正在处理UP主: {up_mid}")
 
             # 创建视频获取器实例
-            fetcher = AsyncBiliUPVideoInfoFetcher(mid=up_mid, sessdata=sessdata)
+            fetcher = AsyncBiliUPVideoInfoFetcher(mid=up_mid, sessdata=sessdata, db=db)
 
-            # 获取视频信息(异步方法)
+            # 获取视频信息(异步方法)，UP主信息会在获取视频列表时自动保存
             videos = await fetcher.fetch_all_videos()
             logger.info(f"获取到 {len(videos)} 个视频")
 
@@ -61,7 +61,6 @@ async def main():
             logger.info(f"UP主 {up_mid} 的视频数量: {count}")
             total_count += count
         logger.info(f"数据库中视频总数量: {total_count}")
-
 
     except ValueError as e:
         logger.error(f"初始化错误: {e}")
