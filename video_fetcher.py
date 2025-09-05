@@ -21,51 +21,103 @@ class AsyncBiliUPVideoInfoFetcher:
         self.max_concurrent = max_concurrent
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
-            'Cookie': f"SESSDATA={sessdata}"  
+            'Cookie': f"SESSDATA={sessdata}",
+            'Referer': 'https://www.bilibili.com',
+            'Origin': 'https://www.bilibili.com',
+            'Accept': 'application/json, text/plain, */*',
+            'Connection': 'keep-alive',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
         }
 
     async def get_video_tags(self, session: aiohttp.ClientSession, bvid: str) -> list[str]:
         """获取视频标签信息"""
-        try:
-            async with session.get(
-                url=f"https://api.bilibili.com/x/web-interface/view/detail/tag",
-                params={'bvid': bvid},
-                timeout=aiohttp.ClientTimeout(total=5)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-
-                if data.get('code') != 0:
-                    logger.error(f"获取视频标签失败: {data.get('message')}")
-                    return []
-                
-                # 提取所有tags
-                return [tag['tag_name'] for tag in data['data']]
+        # 为特定视频设置 Referer
+        headers = {
+            **self.headers,
+            'Referer': f'https://www.bilibili.com/video/{bvid}'
+        }
+        
+        max_retries = 3
+        retry_delay = 1  # 初始重试延迟（秒）
+        
+        for attempt in range(max_retries):
+            try:
+                async with session.get(
+                    url=f"https://api.bilibili.com/x/web-interface/view/detail/tag",
+                    params={'bvid': bvid},
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=5)
+                ) as response:
+                    if response.status == 412:
+                        if attempt < max_retries - 1:
+                            logger.warning(f"视频 {bvid} 获取标签触发风控，等待 {retry_delay * (attempt + 1)} 秒后重试")
+                            await asyncio.sleep(retry_delay * (attempt + 1))
+                            continue
+                    
+                    response.raise_for_status()
+                    data = await response.json()
+                    
+                    if data.get('code') != 0:
+                        logger.warning(f"获取视频 {bvid} 标签失败: {data.get('code')}, {data.get('message')}")
+                        return []
+                    
+                    return [tag['tag_name'] for tag in data.get('data', [])]
+                    
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"视频 {bvid} 获取标签失败，等待 {retry_delay * (attempt + 1)} 秒后重试: {e}")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+                logger.error(f"获取视频 {bvid} 标签失败，已达最大重试次数: {e}")
+                return []
             
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"获取视频标签失败: {e}")
-            return []
+        return []  # 所有重试都失败后返回空列表
 
     async def get_cid_by_bvid(self, session: aiohttp.ClientSession, bvid: str) -> list[dict]:
         """通过bvid获取视频所有分P的cid信息(异步版)"""
-        params = {'bvid': bvid}
-        try:
-            async with session.get(
-                url="https://api.bilibili.com/x/player/pagelist",
-                params=params,
-                timeout=aiohttp.ClientTimeout(total=5)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
+        # 为特定视频设置 Referer
+        headers = {
+            **self.headers,
+            'Referer': f'https://www.bilibili.com/video/{bvid}'
+        }
+        
+        max_retries = 3
+        retry_delay = 1
 
-                if data.get('code') != 0:
-                    logger.error(f"API错误: {data.get('code')}, 错误信息: {data.get('message')}")
-                    return []
+        for attempt in range(max_retries):
+            try:
+                async with session.get(
+                    url="https://api.bilibili.com/x/player/pagelist",
+                    params={'bvid': bvid},
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=5)
+                ) as response:
+                    if response.status == 412:
+                        if attempt < max_retries - 1:
+                            logger.warning(f"视频 {bvid} 获取分P信息触发风控，等待 {retry_delay * (attempt + 1)} 秒后重试")
+                            await asyncio.sleep(retry_delay * (attempt + 1))
+                            continue
 
-                return data.get('data', [])
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"获取分P信息失败: {e}")
-            return []
+                    response.raise_for_status()
+                    data = await response.json()
+
+                    if data.get('code') != 0:
+                        logger.warning(f"获取视频 {bvid} 分P信息失败: {data.get('code')}, {data.get('message')}")
+                        return []
+
+                    return data.get('data', [])
+                    
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"获取视频 {bvid} 分P信息失败，等待 {retry_delay * (attempt + 1)} 秒后重试: {e}")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+                logger.error(f"获取视频 {bvid} 分P信息失败，已达最大重试次数: {e}")
+                return []
+
+        return []
 
     async def fetch_all_videos(self) -> list[dict]:
         """获取目标UP主的所有视频信息(异步版)"""
