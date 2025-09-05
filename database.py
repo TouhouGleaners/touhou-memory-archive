@@ -98,107 +98,144 @@ class VideoDatabase:
         return {'mid': result[0], 'name': result[1]} if result else None
 
     def save_videos(self, videos: List[Dict], up_mid: str) -> None:
-        """保存视频信息至数据库"""
+        """保存视频信息至数据库(使用UPSERT优化)"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # 启用外键约束
-        cursor.execute('PRAGMA foreign_keys = ON')
+        cursor.execute('PRAGMA foreign_keys = ON')  # 启用外键约束
 
         current_time = int(time.time())
 
+        # 预查询所有视频的id(用于分P处理)
+        video_id_cache = {}
         for video in videos:
-            # 检查视频是否已经存在
-            cursor.execute("SELECT id, is_touhou FROM videos WHERE aid = ?", (video['aid'],))
-            existing_video = cursor.fetchone()
+            video_id = self._get_video_id_by_aid(cursor, video['aid'])
+            if video_id:
+                video_id_cache[video['aid']] = video_id
 
+        for video in videos:
             tags = video.get('tags', [])  
         
             # 过滤掉"发现《音乐名》"格式的标签
-            filtered_tags = []
-            for tag in tags:
-                if tag.startswith("发现《") and tag.endswith("》"):
-                    continue
-                filtered_tags.append(tag)
+            filtered_tags = [tag for tag in tags if not (tag.startswith("发现《") and tag.endswith("》"))]
             
-            # 检查是否为东方相关视频
-            if existing_video:
-                # 视频已存在，保留原有的is_touhou值
-                is_touhou = existing_video[1]
-            else:
-                # 新视频，根据标签自动判断
-                # 检查过滤后的标签中是否包含"东方"
-                has_touhou_tag = any('东方' in tag for tag in filtered_tags) if filtered_tags else False
-                is_touhou = 1 if has_touhou_tag else 0
+            # 检查是否为东方视频(仅针对新视频)(简易版)
+            has_touhou_tag = any('东方' in tag for tag in filtered_tags) if filtered_tags else False
             
-            if existing_video:
-                # 更新现有视频信息
-                video_id = existing_video[0]
-                cursor.execute("""
-                    UPDATE videos
-                    SET title = ?, play_count = ?, review_count = ?, comment_count = ?,
-                        length = ?, cover_url = ?, description = ?, is_touhou = ?,
-                        tags = ?, record_updated_at = ?
-                    WHERE aid = ?
-                """, (
-                    video.get('title', ''),
-                    video.get('play', 0),
-                    video.get('video_review', 0),
-                    video.get('comment', 0),
-                    video.get('length', ''),
-                    video.get('pic', ''),
-                    video.get('description', ''),
-                    is_touhou,
-                    ','.join(tags),
-                    current_time,
-                    video['aid']
-                ))
-            else:
-                # 插入新视频
-                cursor.execute('''
-                    INSERT INTO videos
-                        (title, aid, bvid, published_at, play_count, review_count, comment_count,
-                        length, cover_url, description, up_mid, is_touhou, tags, record_created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
-                    ''', (
-                        video.get('title', ''),
-                        video['aid'],
-                        video['bvid'],
-                        video.get('created', 0),
-                        video.get('play', 0),
-                        video.get('video_review', 0),
-                        video.get('comment', 0),
-                        video.get('length', ''),
-                        video.get('pic', ''),
-                        video.get('description', ''),
-                        up_mid,
-                        is_touhou,
-                        ','.join(tags),
-                        current_time
-                    ))
+            # 获取视频id(如果存在)
+            existing_video_id = video_id_cache.get(video['aid'])
+            
+            # 插入新视频
+            cursor.execute('''
+                INSERT INTO videos (
+                    title, aid, bvid, published_at, play_count, review_count,
+                    comment_count, length, cover_url, description, up_mid,
+                    is_touhou, tags, record_created_at, record_updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (aid) DO UPDATE SET
+                    title=excluded.title,
+                    play_count=excluded.play_count,
+                    review_count=excluded.review_count,
+                    comment_count=excluded.comment_count,
+                    length=excluded.length,
+                    cover_url=excluded.cover_url,
+                    description=excluded.description,
+                    tags=excluded.tags,
+                    record_updated_at=excluded.record_updated_at
+            ''', (
+                video.get('title', ''),
+                video['aid'],
+                video['bvid'],
+                video.get('created', 0),
+                video.get('play', 0),
+                video.get('video_review', 0),
+                video.get('comment', 0),
+                video.get('length', ''),
+                video.get('pic', ''),
+                video.get('description', ''),
+                up_mid,
+                1 if has_touhou_tag else 0,  # 对于冲突更新，保留原有值；新视频则根据标签判断
+                ','.join(filtered_tags),
+                current_time if not existing_video_id else None,  # record_created_at
+                current_time  # record_updated_at
+            ))
+
+            # 获取视频id（无论插入还是更新）
+            if cursor.lastrowid:
                 video_id = cursor.lastrowid
+            else:
+                video_id = self._get_video_id_by_aid(cursor, video['aid'])
 
-            # 处理分P信息
-            if 'parts' in video:
-                # 删除旧的分P信息
-                cursor.execute("DELETE FROM video_parts WHERE video_id = ?", (video_id,))
-
-                # 插入新的分P信息
-                for part in video['parts']:
-                    cursor.execute('''
-                        INSERT OR REPLACE INTO video_parts
-                            (video_id, cid, part_number, part_name, part_duration)
-                        VALUES (?, ?, ?, ?, ?)
-                        ''',(
-                            video_id,
-                            part.get('cid', 0),
-                            part.get('page', 1),
-                            part.get('part', ''),
-                            part.get('duration', 0)
-                        ))
+            video_id_cache[video['aid']] = video_id  # 更新缓存
+            self._update_video_parts(cursor, video_id, video['parts'])
+            
         conn.commit()
         conn.close()
 
+    def _get_video_id_by_aid(self, cursor, aid: int) -> Optional[int]:
+        """根据AV号获取视频ID"""
+        cursor.execute("SELECT id FROM videos WHERE aid = ?", (aid,))
+        result = cursor.fetchone()
+        return result[0] if result else None
+    
+    def _update_video_parts(self, cursor, video_id: int, parts: List[Dict]) -> None:
+        """更新视频的分P信息"""
+        # 获取现有分P信息 {cid: id}
+        existing_parts = {}
+        cursor.execute("SELECT cid, id FROM video_parts WHERE video_id = ?", (video_id,))
+        for row in cursor.fetchall():
+            existing_parts[row[0]] = row[1]
+
+        # 准备批量操作的数据
+        to_insert, to_update, to_delete = [], [], []
+
+        # 处理新分P数据
+        for part in parts:
+            cid = part.get('cid')
+            part_data = (
+                video_id,
+                cid,
+                part.get('page', 1),
+                part.get('part', ''),
+                part.get('duration', 0)
+            )
+
+            if cid in existing_parts:
+                # 更新现有分P
+                to_update.append((
+                    part.get('page', 1),  # 更新分P编号(如果变化)
+                    part.get('part', ''),
+                    part.get('duration', 0),
+                    existing_parts[cid]  # 使用cid对应数据库id
+                ))
+                del existing_parts[cid]  # 标记为已处理
+            else:
+                # 插入新增分P
+                to_insert.append(part_data)
+        
+        # 剩余未处理的分P需要删除
+        to_delete = list(existing_parts.values())
+
+        # 批量插入新分P
+        if to_insert:
+            cursor.executemany('''
+                INSERT INTO video_parts (video_id, cid, part_number, part_name, part_duration)
+                VALUES (?, ?, ?, ?, ?)
+            ''', to_insert)
+
+        # 批量更新现有分P
+        if to_update:
+            cursor.executemany('''
+                UPDATE video_parts
+                SET part_number = ?, part_name = ?, part_duration = ?
+                WHERE id = ?
+            ''', to_update)
+
+        # 批量删除多余分P
+        if to_delete:
+            placeholders = ','.join(['?'] * len(to_delete))
+            cursor.execute(f"DELETE FROM video_parts WHERE id IN ({placeholders})", to_delete)
+    
     def get_videos_by_up(self, up_mid: str) -> List[Dict]:
         """获取指定UP主的视频信息"""
         conn = sqlite3.connect(self.db_path)
@@ -224,17 +261,14 @@ class VideoDatabase:
         
         cursor.execute(query, (up_mid,))
 
-        videos = []
-        for row in cursor.fetchall():
-            video = dict(row)
-
-            # 处理分P的cid列表
+        videos = [dict(row) for row in cursor.fetchall()]
+        
+        # 处理分P的cid列表
+        for video in videos:
             if video['cids']:
                 video['cids'] = [int(cid) for cid in video['cids'].split(',')]
             else:
                 video['cids'] = []
-
-            videos.append(video)
 
         conn.close()
         return videos
@@ -295,11 +329,8 @@ class VideoDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # 启用外键约束 
-        cursor.execute('PRAGMA foreign_keys = ON')
-
-        # 删除视频 （级联删除）
-        cursor.execute("DELETE FROM videos WHERE bvid = ?", (bvid,))
+        cursor.execute('PRAGMA foreign_keys = ON')  # 启用外键约束 
+        cursor.execute("DELETE FROM videos WHERE bvid = ?", (bvid,))  # 删除视频（级联删除）
 
         conn.commit()
         conn.close()
