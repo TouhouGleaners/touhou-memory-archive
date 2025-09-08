@@ -3,11 +3,10 @@ CREATE TABLE users (
     name TEXT NOT NULL
 );
 
-
 CREATE TABLE videos (
     aid BIGINT PRIMARY KEY,
     bvid TEXT NOT NULL UNIQUE,
-    mid INTEGER NOT NULL,
+    mid BIGINT NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
     pic TEXT,
