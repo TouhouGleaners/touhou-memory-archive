@@ -12,8 +12,9 @@ CREATE TABLE videos (
     description TEXT,
     pic TEXT,
     created TIMESTAMP,
+    tags TEXT,
     FOREIGN KEY (mid) REFERENCES users (mid)
-); -- TODO: tags, is_touhou
+); -- TODO: is_touhou
 
 CREATE TABLE video_parts (
     cid BIGINT PRIMARY KEY,

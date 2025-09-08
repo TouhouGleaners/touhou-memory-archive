@@ -50,6 +50,15 @@ class Database:
 
         self.conn.commit()
     
-    # TODO: save tags
+    def save_video_tags(self, aid: int, tags: list[str]):
+        tags_str = ','.join(tags)
+        sql = """
+        UPDATE videos
+        SET tags = ?
+        WHERE aid = ?
+        """
+        params = (tags_str, aid)
+        self.cursor.execute(sql, params)
+        self.conn.commit()
 
     # TODO: add new user

@@ -7,6 +7,7 @@ class Video:
         self.description = data['description']
         self.pic = data['pic']
         self.created = data['created']
+        self.tags = []
 
 class VideoPart:
     def __init__(self, data: dict):

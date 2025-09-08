@@ -39,6 +39,9 @@ if __name__ == "__main__":
             
             pattern = re.compile(r'^\$发现《.+?》\^$')
             filtered_tags = list(filter(lambda tag: not pattern.match(tag), tags))
+            video.tags = filtered_tags
+
+            db.save_video_tags(video.aid, video.tags)
             # print(f"Video {video.bvid} tags: {tags}")
             # TODO: check is_touhou
 
