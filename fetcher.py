@@ -78,6 +78,7 @@ def make_api_request(
                 continue
             raise
 
+
 def fetch_video_list(mid: int, page_number: int = 1, page_size: int = 50, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> list[Video]:
     params = {
         'mid': mid,
@@ -90,16 +91,18 @@ def fetch_video_list(mid: int, page_number: int = 1, page_size: int = 50, delay_
         total_videos = data['data']['page']['count']
         total_pages = (total_videos + page_size - 1) // page_size
         
-        if page_number == 1 and total_videos > 1000:
-            sys.setrecursionlimit(page_size * 2)
+        current_page_videos = []
+        for item in vlist:
+            try:
+                current_page_videos.append(Video(item))
+            except Exception as e:
+                logger.warning(f"视频 {item.get('bvid')} 数据解析错误: {e}")
+
+        if page_number < total_pages:
+            next_page_videos = fetch_video_list(mid, page_number + 1, page_size, delay_seconds)
+            current_page_videos.extend(next_page_videos)
         
-        if page_number < total_pages:  # 递归获取下一页
-            vlist += fetch_video_list(mid, page_number + 1, page_size)
-        
-        try:
-            return list(map(Video, vlist))
-        except Exception as e:
-            raise Exception(f"视频数据解析错误: {e}")
+        return current_page_videos
     
     return make_api_request(
         url="https://api.bilibili.com/x/space/wbi/arc/search",
@@ -147,13 +150,13 @@ def fetch_video_tags(bvid: str, delay_seconds: Callable[[], float] = DELAY_SECON
     )
 
 if __name__ == "__main__":
-    if False: # test fetch_video_list
+    if True: # test fetch_video_list
         mid = 66508
         video_list = fetch_video_list(mid)
         print(f"Total videos fetched: {len(video_list)}")
 
 
-    if False: # test fetch_video_parts
+    if True: # test fetch_video_parts
         bvid = "BV1Gx411w7wU"
         plist = fetch_video_parts(bvid)
         print(f"Total parts fetched: {len(plist)}")
