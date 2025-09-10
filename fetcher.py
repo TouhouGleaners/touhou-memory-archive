@@ -5,7 +5,7 @@ import logging
 from typing import Callable, TypeVar, Dict, Any
 
 from config import HEADERS, DELAY_SECONDS
-from Video import Video, VideoPart
+from video import Video, VideoPart
 from wbi_signer import WbiSigner
 
 

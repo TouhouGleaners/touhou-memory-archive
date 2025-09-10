@@ -3,7 +3,7 @@ import re
 from tqdm import tqdm
 
 from config import DB_PATH, DELAY_SECONDS
-from Database import Database, init_db
+from database import Database, init_db
 from fetcher import fetch_video_list, fetch_video_parts, fetch_video_tags
 
 
