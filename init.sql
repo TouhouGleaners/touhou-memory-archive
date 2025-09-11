@@ -12,8 +12,9 @@ CREATE TABLE videos (
     pic TEXT,
     created TIMESTAMP,
     tags TEXT,
+    touhou_status INTEGER NOT NULL DEFAULT 0,  -- 0:未检测 1:自动检测为东方 2:自动检测为非东方 3:人工确认为东方 4:人工确认为非东方
     FOREIGN KEY (mid) REFERENCES users (mid)
-); -- TODO: is_touhou
+);
 
 CREATE TABLE video_parts (
     cid BIGINT PRIMARY KEY,

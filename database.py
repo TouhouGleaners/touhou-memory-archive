@@ -30,10 +30,11 @@ class Database:
     def save_video_info(self, video: Video):
         sql = """
         INSERT OR REPLACE INTO 
-        videos (aid, bvid, mid, title, description, pic, created)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        videos (aid, bvid, mid, title, description, pic, created, touhou_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
-        params = (video.aid, video.bvid, video.mid, video.title, video.description, video.pic, video.created)
+        params = (video.aid, video.bvid, video.mid, video.title, video.description, 
+                  video.pic, video.created, video.touhou_status)
         self.cursor.execute(sql, params)
         self.conn.commit()
 
@@ -52,13 +53,13 @@ class Database:
     
     def save_video_tags(self, aid: int, tags: list[str]):
         tags_str = ','.join(tags)
-        sql = """
-        UPDATE videos
-        SET tags = ?
-        WHERE aid = ?
-        """
+        sql = "UPDATE videos SET tags = ? WHERE aid = ?"
         params = (tags_str, aid)
         self.cursor.execute(sql, params)
         self.conn.commit()
 
+    def update_video_status(self, aid: int, touhou_status: int):
+        sql = "UPDATE videos SET touhou_status = ? WHERE aid = ?"
+        self.cursor.execute(sql, (touhou_status, aid))
+        self.conn.commit()
     # TODO: add new user
