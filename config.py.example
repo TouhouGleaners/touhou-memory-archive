@@ -1,0 +1,28 @@
+import logging
+from random import random
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+
+DB_PATH: str = "bili_videos.db"
+INIT_SQL_PATH: str = "init.sql" 
+
+DELAY_SECONDS = lambda: 1 + random() * 2 # TODO: use async instead of sleep
+
+SESSDATA: str = """"""
+
+
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
+    'Cookie': f'SESSDATA={SESSDATA}',
+    'Referer': 'https://www.bilibili.com',
+    'Origin': 'https://www.bilibili.com',
+    'Accept': 'application/json, text/plain, */*',
+    'Connection': 'keep-alive',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+}

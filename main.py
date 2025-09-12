@@ -1,75 +1,51 @@
 import os
-import logging
-import asyncio
-from dotenv import load_dotenv
-from video_fetcher import AsyncBiliUPVideoInfoFetcher
-from database import VideoDatabase
+import re
+from tqdm import tqdm
+
+from config import DB_PATH, DELAY_SECONDS
+from database import Database, init_db
+from fetcher import fetch_video_list, fetch_video_parts, fetch_video_tags
 
 
-def setup_logging():
-    logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(levelname)s]%(message)s (Line: %(lineno)d)[%(filename)s]",
-    datefmt="%H:%M:%S",
-    handlers=[logging.StreamHandler()]
-)
-
-async def main():
-    setup_logging()
-    logger = logging.getLogger(__name__)
-
-    # 加载环境变量
-    load_dotenv(".env")
-
-    # 获取配置
-    up_mid_srt = os.getenv("UP_UID")
-    up_mids = [mid.strip() for mid in up_mid_srt.split(",")]
-    sessdata = os.getenv("SESSDATA")
-
-    db_path = "bili_videos.db"
-
-    try:
-        # 创建数据库实例
-        db = VideoDatabase(db_path)
-
-        # 遍历所有UP主
-        for up_mid in up_mids:
-            logger.info(f"正在处理UP主: {up_mid}")
-
-            # 创建视频获取器实例
-            fetcher = AsyncBiliUPVideoInfoFetcher(mid=up_mid, sessdata=sessdata, db=db)
-
-            # 获取视频信息(异步方法)，UP主信息会在获取视频列表时自动保存
-            videos = await fetcher.fetch_all_videos()
-            logger.info(f"获取到 {len(videos)} 个视频")
-
-            if videos:
-                # 保存到数据库
-                db.save_videos(videos, up_mid)
-                logger.info(f"已保存视频信息到数据库: {db_path}")
-            else:
-                logger.warning(f"没有获取到视频信息，跳过保存。")
-
-            if up_mid != up_mids[-1]:
-                logger.info("等待10秒后处理下一个UP主...")
-                await asyncio.sleep(10)
-
-        # 查询并显示数据库中的视频总数
-        total_count = 0
-        for up_mid in up_mids:
-            count = db.get_video_count_by_up(up_mid)
-            logger.info(f"UP主 {up_mid} 的视频数量: {count}")
-            total_count += count
-        logger.info(f"数据库中视频总数量: {total_count}")
-
-    except ValueError as e:
-        logger.error(f"初始化错误: {e}")
-    except Exception as e:
-        logger.error(f"程序执行错误: {e}")
-
-    finally:
-        logger.info("程序结束")
+def is_touhou(tags: list[str]) -> int:
+    """自动检测是否为东方视频 是:1 否:2"""
+    touhou_keywords = {
+        "东方Project", "东方project", "东方PROJECT",
+        "東方Project", "東方project", "東方PROJECT",
+        "Touhou", "東方", "车万", "ZUN", "Zun", "zun"
+    }
+    return 1 if any(keyword in tag for tag in tags for keyword in touhou_keywords) else 2
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if not os.path.exists(DB_PATH):
+        init_db()
+    
+    db = Database()
+
+    users = db.get_users()
+
+    for user in users:
+        vlist = fetch_video_list(user)
+
+        for video in tqdm(vlist, desc=f"Processing user {user}"):
+            # 保存视频基本信息
+            db.save_video_info(video)
+
+            # 保存分P信息
+            parts = fetch_video_parts(video.bvid)
+            db.save_parts_info(video.aid, parts)
+
+            # 过滤并保存标签信息
+            tags = fetch_video_tags(video.bvid)
+            pattern = re.compile(r'^\$发现《.+?》\^$')
+            filtered_tags = [tag for tag in tags if not pattern.match(tag)]
+            video.tags = filtered_tags
+            db.save_video_tags(video.aid, video.tags)
+
+            # 检测视频内容并更新状态
+            touhou_status = is_touhou(filtered_tags)
+            video.touhou_status = touhou_status
+            db.update_video_status(video.aid, touhou_status)
+
+    db.close()
