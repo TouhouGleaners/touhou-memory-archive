@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+<h2>UP主管理</h2>
+
+<div>
+    <h3>添加UP主</h3>
+    <form id="addUserForm">
+        <div>
+            <label>
+                UID: <input type="number" id="mid" name="mid" required>
+            </label>
+            <label>
+                用户名: <input type="text" id="name" name="name" required>
+            </label>
+        </div>
+        <button type="submit">添加</button>
+    </form>
+</div>
+
+<div>
+    <h3>已监控UP主列表</h3>
+    <table id="usersTable">
+        <thead>
+            <tr>
+                <th>UID</th>
+                <th>用户名</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- JS -->
+        </tbody>
+    </table>
+</div>
+{% endblock %}

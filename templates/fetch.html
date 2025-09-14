@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+<div class="container">
+    <h2>视频数据抓取</h2>
+
+    <!-- 抓取控制区域 -->
+     <div class="fetch-control-section">
+        <h3>控制抓取</h3>
+        <div class="control-buttons">
+            <button class="start-btn">开始抓取</button>
+            <button class="stop-btn">停止抓取</button>
+        </div>
+     </div>
+
+     <!-- 状态显示区域 -->
+      <div class="status-section">
+        <h3>抓取状态</h3>
+        <div class="status-display">
+            <p>当前状态: <span class="status-text">未开始</span></p>
+            <div class="progress-bar">
+                <div class="progress" style="width: 0%"></div>
+            </div>
+            <p>进度: <span class="progress-text">0</span>/<span class="total-text">0</span> 个UP主</p>
+        </div>
+      </div>
+
+      <!-- 日志显示区域 -->
+</div>
+{% endblock %}
