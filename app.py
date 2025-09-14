@@ -13,11 +13,11 @@ def manage():
 
 @app.route('/videos')
 def videos():
-    return "videos"
+    return render_template("videos.html")
 
 @app.route('/fetch')
 def fetch():
-    return "fetch"
+    return render_template("fetch.html")
 
 
 if __name__ == '__main__':
