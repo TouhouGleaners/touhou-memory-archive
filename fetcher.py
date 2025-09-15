@@ -79,51 +79,61 @@ async def make_api_request(
             await asyncio.sleep(delay_seconds())
 
 
+async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_number: int, page_size: int, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> dict:
+    """获取单页视频"""
+    params = {'mid': mid, 'pn': page_number, 'ps': page_size}
+
+    def process_video_page(data: Dict[str, Any]) -> dict:
+        vlist = data['data']['list']['vlist']
+        total_videos = data['data']['page']['count']
+
+        page_videos = []
+        for item in vlist:
+            try:
+                page_videos.append(Video(item))
+            except Exception as e:
+                logger.warning(f"视频 {item.get('bvid')} 数据解析错误: {e}")
+        return {'page': page_number, 'total': total_videos, 'videos': page_videos}
+
+    return await make_api_request(
+        url="https://api.bilibili.com/x/space/wbi/arc/search",
+        params=params,
+        need_wbi=True,
+        process_data=process_video_page,
+        session=session,
+        delay_seconds=delay_seconds,
+    )
+
 async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: int = 50, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> list[Video]:
     """获取用户所有视频列表（使用循环代替递归）"""
-    all_videos = []
-    page_number = 1
-    total_pages = 1  # 初始化为1，第一次请求后更新
+    # 获取第一页以确认页数
+    try:
+        first_page = await fetch_video_page(mid, session, 1, page_size, delay_seconds)
+        total_videos = first_page['total']
+        total_pages = (total_videos + page_size - 1 ) // page_size
+    except Exception as e:
+        logger.error(f"获取用户 {mid} 视频列表失败: {str(e)}")
+        return []
     
-    while page_number <= total_pages:
-        params = {
-            'mid': mid,
-            'pn': page_number,
-            'ps': page_size
-        }
-        
-        def process_video_lists(data: Dict[str, Any]) -> list[Video]:
-            nonlocal total_pages
-            vlist = data['data']['list']['vlist']
-            total_videos = data['data']['page']['count']
-            total_pages = (total_videos + page_size - 1) // page_size
-            
-            page_videos = []
-            for item in vlist:
-                try:
-                    page_videos.append(Video(item))
-                except Exception as e:
-                    logger.warning(f"视频 {item.get('bvid')} 数据解析错误: {e}")
-            return page_videos
-        
-        try:
-            page_videos = await make_api_request(
-                url="https://api.bilibili.com/x/space/wbi/arc/search",
-                params=params,
-                need_wbi=True,
-                process_data=process_video_lists,
-                session=session,
-                delay_seconds=delay_seconds,
-            )
-            all_videos.extend(page_videos)
-            logger.info(f"已获取用户 {mid} 第 {page_number}/{total_pages} 页视频")
-        except Exception as e:
-            logger.error(f"获取用户 {mid} 第 {page_number} 页视频失败: {str(e)}")
-            # 跳过当前页继续下一页
-            if page_number >= total_pages:
-                break
-        
-        page_number += 1
+    # 创建所有页面的请求任务
+    tasks = []
+    for page in range(1, total_pages + 1):
+        tasks.append(fetch_video_page(mid, session, page, page_size, delay_seconds))
+
+    # 并发执行所有页面请求
+    try:
+        pages = await asyncio.gather(*tasks, return_exceptions=False)
+    except Exception as e:
+        logger.error(f"并发获取用户 {mid} 视频分页失败: {str(e)}")
+        return []
+    
+    # 合并所有视频
+    all_videos = []
+    for page in pages:
+        if isinstance(page, Exception):
+            logger.error(f"获取页面失败: {str(page)}")
+        else:
+            all_videos.extend(page['videos'])
     
     return all_videos
 
