@@ -7,7 +7,8 @@ from tqdm.asyncio import tqdm_asyncio
 
 from config import DB_PATH, DELAY_SECONDS, MAX_CONCURRENCY
 from database import Database, init_db
-from fetcher import fetch_video_list, fetch_video_parts, fetch_video_tags
+from fetcher import fetch_video_list, fetch_video_parts, fetch_video_tags, fetch_video_tags_batch
+from video import Video
 
 logger = logging.getLogger(__name__)
 
@@ -25,30 +26,66 @@ async def process_video(video, session, db, semaphore):
     """处理单个视频"""
     async with semaphore:
         try:
-            # 保存视频基本信息
-            db.save_video_info(video)
+            # 并行获取分P信息和标签信息
+            parts_task = fetch_video_parts(video.bvid, session)
+            parts = await parts_task
 
-            # 保存分P信息
-            parts = await fetch_video_parts(video.bvid, session)
-            db.save_parts_info(video.aid, parts)
+            # 开始事务
+            db.begin_transaction()
+            try:
+                # 一次性保存所有视频信息
+                db.save_video_info(video)
+                db.save_parts_info(video.aid, parts)
+                
+                # 检测视频内容并更新状态
+                touhou_status = is_touhou(video.tags)
+                video.touhou_status = touhou_status
+                db.save_video_tags(video.aid, video.tags)
+                db.update_video_status(video.aid, touhou_status)
 
-            # 过滤并保存标签信息
-            tags = await fetch_video_tags(video.bvid, session)
-            pattern = re.compile(r'^\$发现《.+?》\^$')
-            filtered_tags = [tag for tag in tags if not pattern.match(tag)]
-            video.tags = filtered_tags
-            db.save_video_tags(video.aid, video.tags)
-
-            # 检测视频内容并更新状态
-            touhou_status = is_touhou(filtered_tags)
-            video.touhou_status = touhou_status
-            db.update_video_status(video.aid, touhou_status)
-
-            return True
+                # 提交事务
+                db.commit_transaction()
+                return True
+            except Exception as e:
+                # 发生错误时回滚事务
+                db.rollback_transaction()
+                raise e
         except Exception as e:
             logger.error(f"处理视频 {video.bvid} 失败: {str(e)}")
             return False
         
+async def process_video_batch(videos: list[Video], session: aiohttp.ClientSession, db: Database, semaphore: asyncio.Semaphore) -> list[bool]:
+    """批量处理视频，先获取所有标签，再并发处理每个视频"""
+    if not videos:
+        return []
+    
+    # 先批量获取所有视频的标签
+    logger.info(f"开始批量获取 {len(videos)} 个视频的标签")
+    tags_dict = await fetch_video_tags_batch(videos, session)
+    logger.info(f"成功获取 {len(tags_dict)} 个视频的标签")
+
+    # 为每个视频添加标签信息
+    pattern = re.compile(r'^\$发现《.+?》\^$')
+    for video in videos:
+        if video.bvid in tags_dict:
+            tags = tags_dict[video.bvid]
+            video.tags = [tag for tag in tags if not pattern.match(tag)]
+    
+    # 创建视频处理任务
+    tasks = [process_video(video, session, db, semaphore) for video in videos]
+    
+    # 使用进度条并发处理所有任务
+    results = []
+    for f in tqdm_asyncio.as_completed(tasks, desc="处理视频", total=len(tasks)):
+        try:
+            result = await f
+            results.append(result)
+        except Exception as e:
+            logger.error(f"处理视频失败: {str(e)}")
+            results.append(False)
+    
+    return results
+
 async def main():
     if not os.path.exists(DB_PATH):
         init_db()
@@ -71,15 +108,9 @@ async def main():
                     logger.warning(f"用户 {user} 没有获取到视频，跳过")
                     continue
 
-                tasks = [process_video(video, session, db, semaphore) for video in vlist]
-
-                # 使用异步进度条处理所有任务
-                results = []
-                for f in tqdm_asyncio.as_completed(tasks, desc=f"处理用户 {user} 的视频", total=len(tasks)):
-                    result = await f
-                    results.append(result)
-                
-                success_count = sum(results)
+                # 批量处理所有视频
+                results = await process_video_batch(vlist, session, db, semaphore)
+                success_count = sum(1 for r in results if r)
                 logger.info(f"用户 {user} 处理完成: {success_count}/{len(vlist)} 个视频成功")
             except Exception as e:
                 logger.error(f"处理用户 {user} 失败: {str(e)}")
