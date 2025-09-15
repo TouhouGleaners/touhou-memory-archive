@@ -62,4 +62,21 @@ class Database:
         sql = "UPDATE videos SET touhou_status = ? WHERE aid = ?"
         self.cursor.execute(sql, (touhou_status, aid))
         self.conn.commit()
-    # TODO: add new user
+    
+    def get_users_with_names(self) -> list[tuple]:
+        self.cursor.execute("SELECT mid, name FROM users")
+        return self.cursor.fetchall()
+    
+    def add_user(self, mid: int, name: str):
+        self.cursor.execute("SELECT 1 FROM users WHERE mid = ?", (mid,))
+        if self.cursor.fetchone():
+            raise ValueError("用户已存在")
+        
+        self.cursor.execute("INSERT INTO users (mid, name) VALUES (?, ?)", (mid, name))
+        self.conn.commit()
+
+    def delete_user(self, mid: int):
+        self.cursor.execute("DELETE FROM users WHERE mid = ?",(mid,))
+        if self.cursor.rowcount == 0:
+            raise ValueError("用户不存在")
+        self.conn.commit()
