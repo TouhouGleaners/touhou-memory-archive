@@ -7,7 +7,13 @@ from tqdm.asyncio import tqdm_asyncio
 
 from config import DB_PATH, DELAY_SECONDS, MAX_CONCURRENCY
 from database import Database, init_db
-from fetcher import fetch_video_list, fetch_video_parts, fetch_video_tags, fetch_video_tags_batch
+from fetcher import (
+    fetch_video_list,
+    fetch_video_parts,
+    fetch_video_parts_batch,
+    fetch_video_tags,
+    fetch_video_tags_batch
+)
 from video import Video
 
 logger = logging.getLogger(__name__)
@@ -55,14 +61,16 @@ async def process_video(video, session, db, semaphore):
             return False
         
 async def process_video_batch(videos: list[Video], session: aiohttp.ClientSession, db: Database, semaphore: asyncio.Semaphore) -> list[bool]:
-    """批量处理视频，先获取所有标签，再并发处理每个视频"""
+    """批量处理视频，先获取所有标签和分P信息，再处理每个视频"""
     if not videos:
         return []
     
-    # 先批量获取所有视频的标签
-    logger.info(f"开始批量获取 {len(videos)} 个视频的标签")
-    tags_dict = await fetch_video_tags_batch(videos, session)
-    logger.info(f"成功获取 {len(tags_dict)} 个视频的标签")
+    # 并发获取标签和分P信息
+    logger.info(f"开始批量获取 {len(videos)} 个视频的信息")
+    tags_task = fetch_video_tags_batch(videos, session)
+    parts_task = fetch_video_parts_batch(videos, session)
+    tags_dict, parts_dict = await asyncio.gather(tags_task, parts_task)
+    logger.info(f"成功获取 {len(tags_dict)} 个视频的标签和 {len(parts_dict)} 个视频的分P信息")
 
     # 为每个视频添加标签信息
     pattern = re.compile(r'^\$发现《.+?》\^$')
@@ -70,18 +78,47 @@ async def process_video_batch(videos: list[Video], session: aiohttp.ClientSessio
         if video.bvid in tags_dict:
             tags = tags_dict[video.bvid]
             video.tags = [tag for tag in tags if not pattern.match(tag)]
+        if video.bvid in parts_dict:
+            video.parts = parts_dict[video.bvid]
     
     # 创建视频处理任务
-    tasks = [process_video(video, session, db, semaphore) for video in videos]
+    async def save_video(video: Video) -> bool:
+        async with semaphore:
+            try:
+                # 开始事务
+                db.begin_transaction()
+                try:
+                    # 保存视频基本信息
+                    db.save_video_info(video)
+                    if hasattr(video, 'parts'):
+                        db.save_parts_info(video.aid, video.parts)
+                    
+                    # 检测视频内容并更新状态
+                    touhou_status = is_touhou(video.tags)
+                    video.touhou_status = touhou_status
+                    db.save_video_tags(video.aid, video.tags)
+                    db.update_video_status(video.aid, touhou_status)
+
+                    # 提交事务
+                    db.commit_transaction()
+                    return True
+                except Exception as e:
+                    # 发生错误时回滚事务
+                    db.rollback_transaction()
+                    raise e
+            except Exception as e:
+                logger.error(f"保存视频 {video.bvid} 失败: {str(e)}")
+                return False
     
     # 使用进度条并发处理所有任务
+    tasks = [save_video(video) for video in videos]
     results = []
-    for f in tqdm_asyncio.as_completed(tasks, desc="处理视频", total=len(tasks)):
+    for f in tqdm_asyncio.as_completed(tasks, desc="保存视频信息", total=len(tasks)):
         try:
             result = await f
             results.append(result)
         except Exception as e:
-            logger.error(f"处理视频失败: {str(e)}")
+            logger.error(f"视频处理失败: {str(e)}")
             results.append(False)
     
     return results
