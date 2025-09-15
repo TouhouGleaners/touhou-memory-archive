@@ -1,5 +1,7 @@
 import os
 import re
+import asyncio
+import aiohttp
 from tqdm import tqdm
 
 from config import DB_PATH, DELAY_SECONDS
@@ -17,35 +19,38 @@ def is_touhou(tags: list[str]) -> int:
     return 1 if any(keyword in tag for tag in tags for keyword in touhou_keywords) else 2
 
 
-if __name__ == "__main__":
+async def main():
     if not os.path.exists(DB_PATH):
         init_db()
     
     db = Database()
-
     users = db.get_users()
 
-    for user in users:
-        vlist = fetch_video_list(user)
+    async with aiohttp.ClientSession() as session:
+        for user in users:
+            vlist = await fetch_video_list(user, session)
 
-        for video in tqdm(vlist, desc=f"Processing user {user}"):
-            # 保存视频基本信息
-            db.save_video_info(video)
+            for video in tqdm(vlist, desc=f"Processing user {user}"):
+                # 保存视频基本信息
+                db.save_video_info(video)
 
-            # 保存分P信息
-            parts = fetch_video_parts(video.bvid)
-            db.save_parts_info(video.aid, parts)
+                # 保存分P信息
+                parts = await fetch_video_parts(video.bvid, session)
+                db.save_parts_info(video.aid, parts)
 
-            # 过滤并保存标签信息
-            tags = fetch_video_tags(video.bvid)
-            pattern = re.compile(r'^\$发现《.+?》\^$')
-            filtered_tags = [tag for tag in tags if not pattern.match(tag)]
-            video.tags = filtered_tags
-            db.save_video_tags(video.aid, video.tags)
+                # 过滤并保存标签信息
+                tags = await fetch_video_tags(video.bvid, session)
+                pattern = re.compile(r'^\$发现《.+?》\^$')
+                filtered_tags = [tag for tag in tags if not pattern.match(tag)]
+                video.tags = filtered_tags
+                db.save_video_tags(video.aid, video.tags)
 
-            # 检测视频内容并更新状态
-            touhou_status = is_touhou(filtered_tags)
-            video.touhou_status = touhou_status
-            db.update_video_status(video.aid, touhou_status)
+                # 检测视频内容并更新状态
+                touhou_status = is_touhou(filtered_tags)
+                video.touhou_status = touhou_status
+                db.update_video_status(video.aid, touhou_status)
 
     db.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
