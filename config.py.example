@@ -10,7 +10,9 @@ logging.basicConfig(
 DB_PATH: str = "bili_videos.db"
 INIT_SQL_PATH: str = "init.sql" 
 
-DELAY_SECONDS = lambda: 1 + random() * 2 # TODO: use async instead of sleep
+DELAY_SECONDS = lambda: 1 + random() * 2
+MAX_CONCURRENCY = 5  # 最大并发
+MAX_BATCH_SIZE = 5  # 视频标签获取最大批量数
 
 SESSDATA: str = """"""
 

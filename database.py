@@ -27,7 +27,20 @@ class Database:
         rows = self.cursor.fetchall()
         return [row[0] for row in rows]
 
+    def begin_transaction(self):
+        """开始事务"""
+        self.cursor.execute("BEGIN")
+
+    def commit_transaction(self):
+        """提交事务"""
+        self.conn.commit()
+
+    def rollback_transaction(self):
+        """回滚事务"""
+        self.conn.rollback()
+
     def save_video_info(self, video: Video):
+        """保存视频基本信息（不自动提交）"""
         sql = """
         INSERT OR REPLACE INTO 
         videos (aid, bvid, mid, title, description, pic, created, touhou_status)
@@ -36,9 +49,9 @@ class Database:
         params = (video.aid, video.bvid, video.mid, video.title, video.description, 
                   video.pic, video.created, video.touhou_status)
         self.cursor.execute(sql, params)
-        self.conn.commit()
 
     def save_parts_info(self, aid: int, video_parts: list[VideoPart]):
+        """保存视频分P信息（不自动提交）"""
         sql = """
         INSERT OR REPLACE INTO 
         video_parts (cid, aid, page, part, duration, ctime)
@@ -48,18 +61,16 @@ class Database:
         for part in video_parts:
             params = (part.cid, aid, part.page, part.part, part.duration, part.ctime)
             self.cursor.execute(sql, params)
-
-        self.conn.commit()
     
     def save_video_tags(self, aid: int, tags: list[str]):
+        """保存视频标签（不自动提交）"""
         tags_str = ','.join(tags)
         sql = "UPDATE videos SET tags = ? WHERE aid = ?"
         params = (tags_str, aid)
         self.cursor.execute(sql, params)
-        self.conn.commit()
 
     def update_video_status(self, aid: int, touhou_status: int):
+        """更新视频状态（不自动提交）"""
         sql = "UPDATE videos SET touhou_status = ? WHERE aid = ?"
         self.cursor.execute(sql, (touhou_status, aid))
-        self.conn.commit()
     # TODO: add new user
