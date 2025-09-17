@@ -21,10 +21,10 @@ def export_to_data_repo():
         videos = get_all_videos(conn)
         shanghai_now = datetime.now(pytz.timezone("Asia/Shanghai"))
         
-        latest_dir = repo_path / "latest"
-        latest_dir.mkdir(exist_ok=True)
-        latest_file = latest_dir / "videos.json"
-        save_json(videos, latest_file)
+        docs_data_dir = repo_path / "docs" / "data"
+        docs_data_dir.mkdir(exist_ok=True)
+        docs_data_file = docs_data_dir / "videos.json"
+        save_json(videos, docs_data_file)
         
         archive_dir = repo_path / "archives" / shanghai_now.strftime("%Y-%m")
         archive_dir.mkdir(parents=True, exist_ok=True)
@@ -32,7 +32,7 @@ def export_to_data_repo():
         save_json(videos, archive_file)
         
         print(f"导出成功！共导出 {len(videos)} 个视频")
-        print(f"最新数据: {latest_file.resolve()}")
+        print(f"最新数据: {docs_data_file.resolve()}")
         print(f"归档数据: {archive_file.resolve()}")
         return True
     finally:
