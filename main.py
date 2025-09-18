@@ -5,7 +5,8 @@ import aiohttp
 import logging
 from tqdm.asyncio import tqdm_asyncio
 
-from config import DB_PATH, DELAY_SECONDS, MAX_CONCURRENCY
+from config import DB_PATH, MAX_CONCURRENCY
+from delay_manager import DelayManager
 from database import Database, init_db
 from fetcher import (
     fetch_video_list,
@@ -134,12 +135,17 @@ async def main():
 
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 
+    delay_manager = DelayManager.get_instance()
+
     async with aiohttp.ClientSession() as session:
         for user in users:
             logger.info(f"开始处理用户 {user}")
             try:
                 vlist = await fetch_video_list(user, session)
                 logger.info(f"用户 {user} 共有 {len(vlist)} 个视频")
+
+                # 更新用户视频数量（用于下个用户间的延迟计算）
+                delay_manager.update_video_count(len(vlist))
 
                 if not vlist:
                     logger.warning(f"用户 {user} 没有获取到视频，跳过")
@@ -149,6 +155,12 @@ async def main():
                 results = await process_video_batch(vlist, session, db, semaphore)
                 success_count = sum(1 for r in results if r)
                 logger.info(f"用户 {user} 处理完成: {success_count}/{len(vlist)} 个视频成功")
+
+                # 用户处理完后，应用用户间延迟
+                if user != users[-1]:
+                    switch_delay = delay_manager.get_user_switch_delay()
+                    logger.info(f"将在 {switch_delay:.1f} 秒后处理下一个用户...")
+                    await asyncio.sleep(switch_delay)
             except Exception as e:
                 logger.error(f"处理用户 {user} 失败: {str(e)}")
                 
