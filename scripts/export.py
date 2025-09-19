@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 
-DB_PATH = Path(__file__).parent / "bili_videos.db"
-DATA_REPO_DIR = Path(__file__).parent.parent / "touhou-memory-archive-data"
+DB_PATH = Path(__file__).parent.parent / "bili_videos.db"
+DATA_REPO_DIR = Path(__file__).parent.parent.parent / "touhou-memory-archive-data"
 
 
 def export_to_data_repo():
