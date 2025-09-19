@@ -1,4 +1,3 @@
-import math
 from random import random
 from typing import Optional
 
@@ -26,24 +25,16 @@ class DelayManager:
 
 
 def calculate_dynamic_delay(video_count: int) -> float:
-    """
-    根据上一个用户的视频数量动态计算下一个用户的延迟时间
-    
-    Args:
-        video_count: 上一个用户的视频总数
-        base_delay: 基础延迟时间（秒）
-    
-    Returns:
-        float: 计算得到的延迟时间（秒）
-        
-    计算逻辑:
-    1. 视频数量 <= 10: 使用基础延迟
-    2. 视频数量 10-50: 延迟线性增加
-    3. 视频数量 > 50: 使用对数增长避免延迟过大
-    """
+    """动态计算用户间延迟时间"""
+    if video_count <= 10:
+        return 0.0 + random() * 5  # 0~5
     if video_count <= 50:
-        return 3.0 + random()
-    elif video_count <= 200:
-        return 5.0 + random()
-    else:
-        return 8.0 + random()
+        return 5.0 + random() * 10  # 5~15
+    if video_count <= 100:
+        return 10.0 + random() * 15  # 10~25
+    if video_count <= 250:
+        return 15.0 + random() * 20  # 15~35
+    if video_count <= 500:
+        return 20.0 + random() * 25 # 20~45
+    return 60.0 + random() * 30 # 60~90
+    
