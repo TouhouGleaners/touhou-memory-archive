@@ -4,6 +4,7 @@ import logging
 from typing import Callable, TypeVar, Dict, Any
 
 from config import HEADERS, DELAY_SECONDS
+from delay_manager import DelayManager
 from video import Video, VideoPart
 from wbi_signer import WbiSigner
 
@@ -111,6 +112,9 @@ async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: 
         first_page = await fetch_video_page(mid, session, 1, page_size, delay_seconds)
         total_videos = first_page['total']
         total_pages = (total_videos + page_size - 1 ) // page_size
+        
+        # 更新上一个用户的视频数量，用于后续的延迟计算
+        DelayManager.get_instance().update_video_count(total_videos)
     except Exception as e:
         logger.error(f"获取用户 {mid} 视频列表失败: {str(e)}")
         return []
