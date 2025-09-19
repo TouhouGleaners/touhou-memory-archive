@@ -1,5 +1,6 @@
 import logging
 from random import random
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -7,7 +8,7 @@ logging.basicConfig(
 )
 
 
-DB_PATH: str = "bili_videos.db"
+DB_PATH = Path(__file__).parent.parent / "bili_videos.db"
 INIT_SQL_PATH: str = "init.sql" 
 
 DELAY_SECONDS = lambda: 1.5 + random() * 2
