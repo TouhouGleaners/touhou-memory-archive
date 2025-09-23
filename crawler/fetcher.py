@@ -1,9 +1,9 @@
 import asyncio
 import aiohttp
 import logging
-from typing import Callable, TypeVar, Dict, Any
+from typing import Callable, TypeVar, Dict, List, Tuple, Any
 
-from config import HEADERS, DELAY_SECONDS
+from config import HEADERS, DELAY_SECONDS, BATCH_FETCH_CONFIG
 from delay_manager import DelayManager
 from video import Video, VideoPart
 from wbi_signer import WbiSigner
@@ -141,212 +141,158 @@ async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: 
     
     return all_videos
 
+async def fetch_batch_data(
+        videos: List[Video],
+        session: aiohttp.ClientSession,
+        url: str,
+        process_func: Callable[[Dict[str, Any]], Any],
+        *,
+        max_concurrent: int = None,
+        delay_seconds: Callable[[], float] = DELAY_SECONDS,
+        retry_times: int = None,
+        retry_delay: int = None
+) -> Dict[str, Any]:
+    """批量批量数据获取函数
 
-async def fetch_video_parts(bvid: str, session: aiohttp.ClientSession, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> list[VideoPart]:
-    """获取单个视频的分P信息"""
-    params = {
-        'bvid': bvid
-    }
+    Args:
+        videos (List[Video]): 要获取数据的视频列表
+        session (aiohttp.ClientSession): aiohttp会话
+        url (str): API地址
+        process_func (Callable[[Dict[str, Any]], Any]): 数据处理函数
+        max_concurrent (int, optional): 最大并发请求数. Defaults to None.
+        delay_seconds (Callable[[], float], optional): 请求延迟函数. Defaults to DELAY_SECONDS.
+        retry_times (int, optional): 批次重试次数. Defaults to None.
+        retry_delay (int, optional): 批次重试延迟. Defaults to None.
+
+    Returns:
+        Dict[str, Any]: 以视频bvid为键的数据字典
+    """
+
+    config = BATCH_FETCH_CONFIG.copy()
+    if max_concurrent is not None:
+        config['max_concurrent'] = max_concurrent
+    if retry_times is not None:
+        config['retry_times'] = retry_times
+    if retry_delay is not None:
+        config['retry_delay'] = retry_delay
+
+    api_semaphore = asyncio.Semaphore(config['max_concurrent'])
+    result_dict = {}
+    failed_videos = videos
+
+    for attempt in range(config['retry_times'] + 1):
+        if not failed_videos:
+            break
+
+        if attempt > 0:
+            logger.warning(f"第 {attempt} 次重试获取 {len(failed_videos)} 个视频的数据")
+            await asyncio.sleep(config['retry_delay'] * attempt)
+
+        async def fetch_with_semaphore(video: Video) -> Tuple[str, Any, bool]:
+            async with api_semaphore:
+                try:
+                    params = {'bvid': video.bvid}
+
+                    data = await make_api_request(
+                        url=url,
+                        params=params,
+                        need_wbi=False,
+                        process_data=process_func,
+                        session=session,
+                        delay_seconds=delay_seconds,
+                    )
+                    return video.bvid, data, True
+                except Exception as e:
+                    logger.error(f"获取视频 {video.bvid} 数据失败: {str(e)}")
+                    return video.bvid, None, False
+                
+        # 创建当前批次的请求任务
+        tasks = [fetch_with_semaphore(video) for video in failed_videos]
+
+        # 并发执行请求
+        try:
+            current_result = await asyncio.gather(*tasks, return_exceptions=False)
+
+            # 更新结果并收集失败的视频
+            next_failed_videos = []
+            for bvid, data, success in current_result:
+                if success:
+                    result_dict[bvid] = data
+                else:
+                    next_video = next(v for v in failed_videos if v.bvid == bvid)
+                    next_failed_videos.append(next_video)
+            
+            failed_videos = next_failed_videos
+
+            if failed_videos:
+                logger.warning(f"本批次仍有 {len(failed_videos)} 个视频获取数据失败")
+
+        except Exception as e:
+            logger.error(f"批量获取数据时发生错误: {str(e)}")
+            continue
     
-    def process_video_parts(data: Dict[str, Any]) -> list[VideoPart]:
+    if failed_videos:
+        logger.error(f"最终仍有 {len(failed_videos)} 个视频的数据获取失败")
+        # 为失败的视频添加空数据
+        for video in failed_videos:
+            result_dict[video.bvid] = []
+
+    return result_dict
+
+async def fetch_parts(videos: List[Video], session: aiohttp.ClientSession, **kwargs) -> Dict[str, List[VideoPart]]:
+    """批量获取视频分P信息"""
+    def process_parts(data: Dict[str, Any]) -> List[VideoPart]:
         try:
             return list(map(VideoPart, data['data']))
         except Exception as e:
-            raise Exception(f"分P数据解析错误: {e}")
-    
-    return await make_api_request(
-        url="https://api.bilibili.com/x/player/pagelist",
-        params=params,
-        need_wbi=False,
-        process_data=process_video_parts,
+            raise Exception(f"分P数据解析失败: {e}")
+        
+    return await fetch_batch_data(
+        videos=videos,
         session=session,
-        delay_seconds=delay_seconds,
+        url="https://api.bilibili.com/x/player/pagelist",
+        process_func=process_parts,
+        **kwargs
     )
-
-async def fetch_video_parts_batch(
-    videos: list[Video],
-    session: aiohttp.ClientSession,
-    max_concurrent: int = 5,
-    delay_seconds: Callable[[], float] = DELAY_SECONDS,
-    batch_retry_times: int = 2,
-    batch_retry_delay: int = 10
-) -> Dict[str, list[VideoPart]]:
-    """
-    批量获取多个视频的分P信息
     
-    Args:
-        videos: 要获取分P信息的视频列表
-        session: aiohttp会话
-        max_concurrent: 最大并发请求数
-        delay_seconds: 请求延迟函数
-        batch_retry_times: 批次重试次数
-        batch_retry_delay: 批次重试延迟（秒）
-    
-    Returns:
-        Dict[str, list[VideoPart]]: 以视频bvid为键的分P信息字典
-    """
-    semaphore = asyncio.Semaphore(max_concurrent)
-    results_dict = {}
-    failed_videos = videos
-    
-    for attempt in range(batch_retry_times + 1):
-        if not failed_videos:
-            break
-            
-        if attempt > 0:
-            logger.warning(f"第 {attempt} 次重试获取 {len(failed_videos)} 个视频的分P信息")
-            await asyncio.sleep(batch_retry_delay * attempt)
-        
-        async def fetch_with_semaphore(video: Video) -> tuple[str, list[VideoPart], bool]:
-            async with semaphore:
-                try:
-                    parts = await fetch_video_parts(video.bvid, session, delay_seconds)
-                    return video.bvid, parts, True
-                except Exception as e:
-                    logger.error(f"获取视频 {video.bvid} 分P信息失败: {str(e)}")
-                    return video.bvid, [], False
-        
-        # 创建当前批次的请求任务
-        tasks = [fetch_with_semaphore(video) for video in failed_videos]
-        
-        # 并发执行请求
-        try:
-            current_results = await asyncio.gather(*tasks, return_exceptions=False)
-            
-            # 更新结果并收集失败的视频
-            next_failed_videos = []
-            for bvid, parts, success in current_results:
-                if success:
-                    results_dict[bvid] = parts
-                else:
-                    next_video = next(v for v in failed_videos if v.bvid == bvid)
-                    next_failed_videos.append(next_video)
-            
-            failed_videos = next_failed_videos
-            
-            if failed_videos:
-                logger.warning(f"本批次仍有 {len(failed_videos)} 个视频获取分P信息失败")
-            
-        except Exception as e:
-            logger.error(f"批量获取分P信息时发生错误: {str(e)}")
-            continue
-    
-    if failed_videos:
-        logger.error(f"最终仍有 {len(failed_videos)} 个视频的分P信息获取失败")
-        # 为失败的视频添加空分P列表
-        for video in failed_videos:
-            results_dict[video.bvid] = []
-    
-    return results_dict
-
-
-async def fetch_video_tags(bvid: str, session: aiohttp.ClientSession, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> list[str]:
-    """获取单个视频的标签"""
-    params = {
-        'bvid': bvid
-    }
-    
-    def process_video_tags(data: Dict[str, Any]) -> list[str]:
+async def fetch_tags(videos: List[Video], session: aiohttp.ClientSession, **kwargs) -> Dict[str, List[str]]:
+    """批量获取视频标签"""
+    def process_tags(data: Dict[str, Any]) -> List[str]:
         return list(map(lambda tag: tag['tag_name'], data.get('data', [])))
     
-    return await make_api_request(
-        url="https://api.bilibili.com/x/web-interface/view/detail/tag",
-        params=params,
-        need_wbi=False,
-        process_data=process_video_tags,
+    return await fetch_batch_data(
+        videos=videos,
         session=session,
-        delay_seconds=delay_seconds,
+        url="https://api.bilibili.com/x/web-interface/view/detail/tag",
+        process_func=process_tags,
+        **kwargs
     )
 
-async def fetch_video_tags_batch(
-    videos: list[Video],
-    session: aiohttp.ClientSession,
-    max_concurrent: int = 5,
-    delay_seconds: Callable[[], float] = DELAY_SECONDS,
-    batch_retry_times: int = 2,
-    batch_retry_delay: int = 10
-) -> Dict[str, list[str]]:
-    """
-    批量获取多个视频的标签，支持批次级别的重试
-    
-    Args:
-        videos: 要获取标签的视频列表
-        session: aiohttp会话
-        max_concurrent: 最大并发请求数
-        delay_seconds: 请求延迟函数
-        batch_retry_times: 批次重试次数
-        batch_retry_delay: 批次重试延迟（秒）
-    
-    Returns:
-        Dict[str, list[str]]: 以视频bvid为键的标签字典
-    """
-    semaphore = asyncio.Semaphore(max_concurrent)
-    results_dict = {}
-    failed_videos = videos
-    
-    for attempt in range(batch_retry_times + 1):
-        if not failed_videos:
-            break
-            
-        if attempt > 0:
-            logger.warning(f"第 {attempt} 次重试获取 {len(failed_videos)} 个视频的标签")
-            await asyncio.sleep(batch_retry_delay * attempt)
-        
-        async def fetch_with_semaphore(video: Video) -> tuple[str, list[str], bool]:
-            async with semaphore:
-                try:
-                    tags = await fetch_video_tags(video.bvid, session, delay_seconds)
-                    return video.bvid, tags, True
-                except Exception as e:
-                    logger.error(f"获取视频 {video.bvid} 标签失败: {str(e)}")
-                    return video.bvid, [], False
-        
-        # 创建当前批次的请求任务
-        tasks = [fetch_with_semaphore(video) for video in failed_videos]
-        
-        # 并发执行请求
-        try:
-            current_results = await asyncio.gather(*tasks, return_exceptions=False)
-            
-            # 更新结果并收集失败的视频
-            next_failed_videos = []
-            for bvid, tags, success in current_results:
-                if success:
-                    results_dict[bvid] = tags
-                else:
-                    next_video = next(v for v in failed_videos if v.bvid == bvid)
-                    next_failed_videos.append(next_video)
-            
-            failed_videos = next_failed_videos
-            
-            if failed_videos:
-                logger.warning(f"本批次仍有 {len(failed_videos)} 个视频获取标签失败")
-            
-        except Exception as e:
-            logger.error(f"批量获取标签时发生错误: {str(e)}")
-            continue
-    
-    if failed_videos:
-        logger.error(f"最终仍有 {len(failed_videos)} 个视频的标签获取失败")
-        # 为失败的视频添加空标签列表
-        for video in failed_videos:
-            results_dict[video.bvid] = []
-    
-    return results_dict
 
 if __name__ == "__main__":
-    if True: # test fetch_video_list
-        mid = 66508
-        video_list = fetch_video_list(mid)
-        print(f"Total videos fetched: {len(video_list)}")
-
-
-    if True: # test fetch_video_parts
-        bvid = "BV1Gx411w7wU"
-        plist = fetch_video_parts(bvid)
-        print(f"Total parts fetched: {len(plist)}")
-
-    if True: # test fetch_video_tags
-        bvid = "BV1Gx411w7wU"
-        tags = fetch_video_tags(bvid)
-        print(f"Tags: {tags}")
+    async def test():
+        # 测试 fetch_video_list
+        if True:
+            mid = 66508
+            async with aiohttp.ClientSession() as session:
+                video_list = await fetch_video_list(mid, session)
+                print(f"Total videos fetched: {len(video_list)}")
+                
+        # 测试 fetch_parts
+        if True:
+            bvid = "BV1Gx411w7wU"
+            # 创建一个Video对象用于测试
+            video = Video({'aid': 1, 'bvid': bvid, 'mid': 1, 'title': 'test', 'description': 'test', 'pic': 'test', 'created': 1234567890})
+            async with aiohttp.ClientSession() as session:
+                parts_dict = await fetch_parts([video], session)
+                print(f"Total parts fetched: {len(parts_dict.get(bvid, []))}")
+            
+        # 测试 fetch_tags
+        if True:
+            bvid = "BV1Gx411w7wU"
+            video = Video({'aid': 1, 'bvid': bvid, 'mid': 1, 'title': 'test', 'description': 'test', 'pic': 'test', 'created': 1234567890})
+            async with aiohttp.ClientSession() as session:
+                tags_dict = await fetch_tags([video], session)
+                print(f"Tags: {tags_dict.get(bvid, [])}")
+    # 运行测试
+    asyncio.run(test())

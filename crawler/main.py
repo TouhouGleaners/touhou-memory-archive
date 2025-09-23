@@ -8,13 +8,7 @@ from tqdm.asyncio import tqdm_asyncio
 from config import DB_PATH, MAX_CONCURRENCY
 from delay_manager import DelayManager
 from database import Database, init_db
-from fetcher import (
-    fetch_video_list,
-    fetch_video_parts,
-    fetch_video_parts_batch,
-    fetch_video_tags,
-    fetch_video_tags_batch
-)
+from fetcher import fetch_video_list, fetch_parts, fetch_tags
 from video import Video
 
 logger = logging.getLogger(__name__)
@@ -28,38 +22,6 @@ def is_touhou(tags: list[str]) -> int:
         "Touhou", "東方", "车万", "ZUN", "Zun", "zun"
     }
     return 1 if any(keyword in tag for tag in tags for keyword in touhou_keywords) else 2
-
-async def process_video(video, session, db, semaphore):
-    """处理单个视频"""
-    async with semaphore:
-        try:
-            # 并行获取分P信息和标签信息
-            parts_task = fetch_video_parts(video.bvid, session)
-            parts = await parts_task
-
-            # 开始事务
-            db.begin_transaction()
-            try:
-                # 一次性保存所有视频信息
-                db.save_video_info(video)
-                db.save_parts_info(video.aid, parts)
-                
-                # 检测视频内容并更新状态
-                touhou_status = is_touhou(video.tags)
-                video.touhou_status = touhou_status
-                db.save_video_tags(video.aid, video.tags)
-                db.update_video_status(video.aid, touhou_status)
-
-                # 提交事务
-                db.commit_transaction()
-                return True
-            except Exception as e:
-                # 发生错误时回滚事务
-                db.rollback_transaction()
-                raise e
-        except Exception as e:
-            logger.error(f"处理视频 {video.bvid} 失败: {str(e)}")
-            return False
         
 async def process_video_batch(videos: list[Video], session: aiohttp.ClientSession, db: Database, semaphore: asyncio.Semaphore) -> list[bool]:
     """批量处理视频，先获取所有标签和分P信息，再处理每个视频"""
@@ -68,8 +30,8 @@ async def process_video_batch(videos: list[Video], session: aiohttp.ClientSessio
     
     # 并发获取标签和分P信息
     logger.info(f"开始批量获取 {len(videos)} 个视频的信息")
-    tags_task = fetch_video_tags_batch(videos, session)
-    parts_task = fetch_video_parts_batch(videos, session)
+    tags_task = fetch_tags(videos, session)
+    parts_task = fetch_parts(videos, session)
     tags_dict, parts_dict = await asyncio.gather(tags_task, parts_task)
     logger.info(f"成功获取 {len(tags_dict)} 个视频的标签和 {len(parts_dict)} 个视频的分P信息")
 
