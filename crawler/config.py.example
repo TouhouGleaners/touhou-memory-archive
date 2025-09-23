@@ -15,6 +15,12 @@ DELAY_SECONDS = lambda: 1.5 + random() * 2
 MAX_CONCURRENCY = 5  # 最大并发
 MAX_BATCH_SIZE = 5  # 视频标签获取最大批量数
 
+BATCH_FETCH_CONFIG = {
+    'max_concurrent': 5,  # 最大并发数
+    'retry_times': 2,  # 最大重试次数
+    'retry_delay': 10  # 批次重试延迟
+}
+
 SESSDATA: str = """"""
 
 
