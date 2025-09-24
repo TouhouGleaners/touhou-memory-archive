@@ -15,6 +15,9 @@ BATCH_FETCH_CONFIG = {
     'retry_delay': 10  # 批次重试延迟
 }
 
+CHUNK_SIZE = 50  # 每次处理的视频块大小，50是一个安全且高效的选择
+CHUNK_DELAY_SECONDS = lambda: 5 + random() * 5  # 每个块处理完后的延迟，5到10秒的随机延迟
+
 SESSDATA: str = """"""
 
 

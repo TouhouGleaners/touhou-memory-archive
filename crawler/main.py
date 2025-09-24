@@ -3,9 +3,10 @@ import re
 import asyncio
 import aiohttp
 import logging
+from random import random
 from tqdm.asyncio import tqdm_asyncio
 
-from config import DB_PATH, MAX_CONCURRENCY
+from config import DB_PATH, MAX_CONCURRENCY, CHUNK_SIZE, CHUNK_DELAY_SECONDS
 from delay_manager import DelayManager
 from database import Database, init_db
 from fetcher import fetch_video_list, fetch_parts, fetch_tags
@@ -29,7 +30,7 @@ async def process_video_batch(videos: list[Video], session: aiohttp.ClientSessio
         return []
     
     # 并发获取标签和分P信息
-    logger.info(f"开始批量获取 {len(videos)} 个视频的信息")
+    logger.info(f"开始批量获取 {len(videos)} 个视频(1个块)的信息")
     tags_task = fetch_tags(videos, session)
     parts_task = fetch_parts(videos, session)
     tags_dict, parts_dict = await asyncio.gather(tags_task, parts_task)
@@ -76,7 +77,7 @@ async def process_video_batch(videos: list[Video], session: aiohttp.ClientSessio
     # 使用进度条并发处理所有任务
     tasks = [save_video(video) for video in videos]
     results = []
-    for f in tqdm_asyncio.as_completed(tasks, desc="保存视频信息", total=len(tasks)):
+    for f in tqdm_asyncio.as_completed(tasks, desc="保存视频块", total=len(tasks), leave=False):
         try:
             result = await f
             results.append(result)
@@ -113,9 +114,25 @@ async def main():
                     logger.warning(f"用户 {user} 没有获取到视频，跳过")
                     continue
 
-                # 批量处理所有视频
-                results = await process_video_batch(vlist, session, db, semaphore)
-                success_count = sum(1 for r in results if r)
+                all_result = []
+                total_chunks = (len(vlist) + CHUNK_SIZE - 1) // CHUNK_SIZE
+                
+                for i in range(0, len(vlist), CHUNK_SIZE):
+                    video_chunk = vlist[i:i + CHUNK_SIZE]
+                    chunk_num = (i // CHUNK_SIZE) + 1
+                    logger.info(f"正在处理用户 {user} 的第 {chunk_num}/{total_chunks} 块视频")
+
+                    # 批量处理当前块的视频
+                    chunk_results = await process_video_batch(video_chunk, session, db, semaphore)
+                    all_result.extend(chunk_results)
+
+                    # 如果不是最后一个块，则应用块间延迟
+                    if chunk_num < total_chunks:
+                        delay = CHUNK_DELAY_SECONDS()
+                        logger.info(f"块处理完成，暂停 {delay:.2f} 秒...")
+                        await asyncio.sleep(delay)
+                
+                success_count = sum(1 for r in all_result if r)
                 logger.info(f"用户 {user} 处理完成: {success_count}/{len(vlist)} 个视频成功")
 
                 # 用户处理完后，应用用户间延迟
