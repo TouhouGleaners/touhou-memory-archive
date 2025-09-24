@@ -3,7 +3,6 @@ import re
 import asyncio
 import aiohttp
 import logging
-from random import random
 from tqdm.asyncio import tqdm_asyncio
 
 from config import DB_PATH, MAX_CONCURRENCY, CHUNK_SIZE, CHUNK_DELAY_SECONDS
