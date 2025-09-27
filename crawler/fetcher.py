@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import logging
+from tqdm.asyncio import tqdm_asyncio
 from typing import Callable, TypeVar, Dict, List, Tuple, Any
 
 from config import HEADERS, DELAY_SECONDS, BATCH_FETCH_CONFIG
@@ -106,38 +107,58 @@ async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_number
     )
 
 async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: int = 50, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> list[Video]:
-    """获取用户所有视频列表（使用循环代替递归）"""
-    # 获取第一页以确认页数
+    """获取用户所有视频列表"""
     try:
+        # 获取第一页以确认总页数，避免不必要请求
         first_page = await fetch_video_page(mid, session, 1, page_size, delay_seconds)
         total_videos = first_page['total']
         total_pages = (total_videos + page_size - 1 ) // page_size
         
-        # 更新上一个用户的视频数量，用于后续的延迟计算
-        DelayManager.get_instance().update_video_count(total_videos)
+        DelayManager.get_instance().update_video_count(total_videos)  # 更新上一个用户的视频数量，用于后续的延迟计算
+        
+        all_videos = first_page['videos']
+
+        # 如果只有一页，直接返回
+        if total_pages == 1:
+            return all_videos
+
     except Exception as e:
         logger.error(f"获取用户 {mid} 视频列表失败: {str(e)}")
         return []
     
-    # 创建所有页面的请求任务
-    tasks = []
-    for page in range(1, total_pages + 1):
-        tasks.append(fetch_video_page(mid, session, page, page_size, delay_seconds))
+    # 为后续页面请求创建一个有限的并发控制器
+    # 并发请求应该尽可能的小，以模拟用户快速翻页
+    list_semaphore = asyncio.Semaphore(2)
+    async def fetch_page_with_semaphore(page_num):
+        async with list_semaphore:
+            return await fetch_video_page(mid, session, page_num, page_size, delay_seconds)
+    
+    # 从第二页开始创建任务
+    tasks = [fetch_page_with_semaphore(page) for page in range(2, total_pages + 1)]
 
-    # 并发执行所有页面请求
     try:
-        pages = await asyncio.gather(*tasks, return_exceptions=False)
+        # 使用tqdm来显示进度
+        remaining_pages = []
+        pbar = tqdm_asyncio(total=len(tasks), desc=f"获取用户 {mid} 视频列表", leave=False)
+        for f in asyncio.as_completed(tasks):
+            page_result = await f
+            if isinstance(page_result, dict):
+                remaining_pages.append(page_result)
+            pbar.update(1)
+        pbar.close()
     except Exception as e:
-        logger.error(f"并发获取用户 {mid} 视频分页失败: {str(e)}")
+        logger.error(f"获取用户 {mid} 视频列表时发生错误: {str(e)}")
         return []
     
     # 合并所有视频
-    all_videos = []
-    for page in pages:
-        if isinstance(page, Exception):
-            logger.error(f"获取页面失败: {str(page)}")
+    for page in remaining_pages:
+        videos_in_page = page.get('videos', [])
+
+        # 确保 videos_in_page 是列表
+        if isinstance(videos_in_page, list):
+            all_videos.extend(videos_in_page)
         else:
-            all_videos.extend(page['videos'])
+            logger.warning(f"用户 {mid} 的某个分页返回了无效的 'videos' 字段, 已跳过. 数据: {videos_in_page}")
     
     return all_videos
 
