@@ -148,10 +148,17 @@ async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: 
         pbar.close()
     except Exception as e:
         logger.error(f"获取用户 {mid} 视频列表时发生错误: {str(e)}")
+        return []
     
     # 合并所有视频
     for page in remaining_pages:
-        all_videos.extend(page['videos'])
+        videos_in_page = page.get('videos', [])
+
+        # 确保 videos_in_page 是列表
+        if isinstance(videos_in_page, list):
+            all_videos.extend(videos_in_page)
+        else:
+            logger.warning(f"用户 {mid} 的某个分页返回了无效的 'videos' 字段, 已跳过. 数据: {videos_in_page}")
     
     return all_videos
 
