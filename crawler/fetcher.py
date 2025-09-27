@@ -165,10 +165,10 @@ async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: 
 async def fetch_batch_data(
         videos: List[Video],
         session: aiohttp.ClientSession,
+        semaphore: asyncio.Semaphore,
         url: str,
         process_func: Callable[[Dict[str, Any]], Any],
         *,
-        max_concurrent: int = None,
         delay_seconds: Callable[[], float] = DELAY_SECONDS,
         retry_times: int = None,
         retry_delay: int = None
@@ -190,14 +190,12 @@ async def fetch_batch_data(
     """
 
     config = BATCH_FETCH_CONFIG.copy()
-    if max_concurrent is not None:
-        config['max_concurrent'] = max_concurrent
     if retry_times is not None:
         config['retry_times'] = retry_times
     if retry_delay is not None:
         config['retry_delay'] = retry_delay
 
-    api_semaphore = asyncio.Semaphore(config['max_concurrent'])
+    api_semaphore = semaphore
     result_dict = {}
     failed_videos = videos
 
@@ -260,7 +258,7 @@ async def fetch_batch_data(
 
     return result_dict
 
-async def fetch_parts(videos: List[Video], session: aiohttp.ClientSession, **kwargs) -> Dict[str, List[VideoPart]]:
+async def fetch_parts(videos: List[Video], session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, **kwargs) -> Dict[str, List[VideoPart]]:
     """批量获取视频分P信息"""
     def process_parts(data: Dict[str, Any]) -> List[VideoPart]:
         try:
@@ -271,12 +269,13 @@ async def fetch_parts(videos: List[Video], session: aiohttp.ClientSession, **kwa
     return await fetch_batch_data(
         videos=videos,
         session=session,
+        semaphore=semaphore,
         url="https://api.bilibili.com/x/player/pagelist",
         process_func=process_parts,
         **kwargs
     )
     
-async def fetch_tags(videos: List[Video], session: aiohttp.ClientSession, **kwargs) -> Dict[str, List[str]]:
+async def fetch_tags(videos: List[Video], session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, **kwargs) -> Dict[str, List[str]]:
     """批量获取视频标签"""
     def process_tags(data: Dict[str, Any]) -> List[str]:
         return list(map(lambda tag: tag['tag_name'], data.get('data', [])))
@@ -284,6 +283,7 @@ async def fetch_tags(videos: List[Video], session: aiohttp.ClientSession, **kwar
     return await fetch_batch_data(
         videos=videos,
         session=session,
+        semaphore=semaphore,
         url="https://api.bilibili.com/x/web-interface/view/detail/tag",
         process_func=process_tags,
         **kwargs
@@ -292,6 +292,7 @@ async def fetch_tags(videos: List[Video], session: aiohttp.ClientSession, **kwar
 
 if __name__ == "__main__":
     async def test():
+        test_semaphore = asyncio.Semaphore(5)
         # 测试 fetch_video_list
         if True:
             mid = 66508
@@ -305,7 +306,7 @@ if __name__ == "__main__":
             # 创建一个Video对象用于测试
             video = Video({'aid': 1, 'bvid': bvid, 'mid': 1, 'title': 'test', 'description': 'test', 'pic': 'test', 'created': 1234567890})
             async with aiohttp.ClientSession() as session:
-                parts_dict = await fetch_parts([video], session)
+                parts_dict = await fetch_parts([video], session, test_semaphore)
                 print(f"Total parts fetched: {len(parts_dict.get(bvid, []))}")
             
         # 测试 fetch_tags
@@ -313,7 +314,7 @@ if __name__ == "__main__":
             bvid = "BV1Gx411w7wU"
             video = Video({'aid': 1, 'bvid': bvid, 'mid': 1, 'title': 'test', 'description': 'test', 'pic': 'test', 'created': 1234567890})
             async with aiohttp.ClientSession() as session:
-                tags_dict = await fetch_tags([video], session)
+                tags_dict = await fetch_tags([video], session, test_semaphore)
                 print(f"Tags: {tags_dict.get(bvid, [])}")
     # 运行测试
     asyncio.run(test())
