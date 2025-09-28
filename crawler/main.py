@@ -30,8 +30,8 @@ async def process_video_batch(videos: list[Video], session: aiohttp.ClientSessio
     
     # 并发获取标签和分P信息
     logger.info(f"开始批量获取 {len(videos)} 个视频(1个块)的信息")
-    tags_task = fetch_tags(videos, session)
-    parts_task = fetch_parts(videos, session)
+    tags_task = fetch_tags(videos, session, semaphore)
+    parts_task = fetch_parts(videos, session, semaphore)
     tags_dict, parts_dict = await asyncio.gather(tags_task, parts_task)
     logger.info(f"成功获取 {len(tags_dict)} 个视频的标签和 {len(parts_dict)} 个视频的分P信息")
 
