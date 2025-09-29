@@ -20,6 +20,15 @@ DELAY_SECONDS = lambda: uniform(0.1, 0.3)
 CHUNK_DELAY_SECONDS = lambda: 5 + random() * 5
 
 
+# --- 用户切换动态延迟模型配置 ---
+USER_SWITCH_CONFIG = {
+    'BASE_DELAY': 5.0,          # 基础延迟（秒）：无论上个用户视频多少，也至少要等这么久
+    'FACTOR_PER_VIDEO': 0.15,   # 增长因子：上个用户每增加一个视频，延迟就增加这么多秒
+    'MAX_DELAY': 180.0,         # 最大延迟（秒）：防止某个用户视频过多（如几千个）导致等待时间无限长
+    'JITTER_RATIO': 0.20        # 随机抖动比例：在计算出的延迟基础上，上下浮动的百分比，0.20 表示 ±20%
+}
+
+
 # --- 批量请求特定配置 ---
 BATCH_FETCH_CONFIG = {
     'retry_times': 2,  # 针对失败请求的重试次数
