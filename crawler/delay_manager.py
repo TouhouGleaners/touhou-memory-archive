@@ -7,7 +7,14 @@ from config import USER_SWITCH_CONFIG
 logger = logging.getLogger(__name__)
 
 class DelayManager:
-    """用户间延迟管理类"""
+    """
+    管理和计算在不同操作之间动态延迟的单例类。
+    注意：
+    这是一个非线程安全的全局单例。当前应用的主循环是串行处理用户的，
+    因此不存在并发访问的问题。如果未来要将用户处理逻辑并行化
+    （例如，使用 asyncio.gather），则必须为 update_video_count 和
+    get_user_switch_delay 方法添加同步机制（如 asyncio.Lock）以确保线程安全。
+    """
     _instance: Optional['DelayManager'] = None
     
     def __init__(self):
