@@ -10,7 +10,7 @@ jobs:
       pull_requests: write
     steps:
       - name: Add Triage Label
-        uses: daneden/add-pr-lebal@v4
+        uses: daneden/add-pr-label@v4
         with:
           label: 'Status: Triage'
           token: ${{ secrets.GITHUB_TOKEN }}
