@@ -7,7 +7,7 @@ jobs:
     name: Add "Status: Triage" Label
     runs-on: ubuntu-latest
     permissions:
-      pull_requests: write
+      pull-requests: write
     steps:
       - name: Add Triage Label
         uses: daneden/add-pr-label@v4
