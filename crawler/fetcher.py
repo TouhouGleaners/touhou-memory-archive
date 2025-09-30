@@ -1,10 +1,9 @@
 import asyncio
 import aiohttp
 import logging
-from tqdm.asyncio import tqdm_asyncio
 from typing import Callable, TypeVar, Dict, List, Tuple, Any
 
-from config import HEADERS, DELAY_SECONDS, BATCH_FETCH_CONFIG
+from config import HEADERS, DELAY_SECONDS, BATCH_FETCH_CONFIG, PRODUCER_PAGE_DELAY_SECONDS
 from delay_manager import DelayManager
 from video import Video, VideoPart
 from wbi_signer import WbiSigner
@@ -106,61 +105,61 @@ async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_number
         delay_seconds=delay_seconds,
     )
 
-async def fetch_video_list(mid: int, session: aiohttp.ClientSession, page_size: int = 50, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> list[Video]:
-    """获取用户所有视频列表"""
+async def fetch_video_list(
+    mid: int,
+    session: aiohttp.ClientSession,
+    queue: asyncio.Queue,
+    delay_manager: DelayManager,
+    page_size: int = 50
+) -> None:
+    """
+    生产者函数：获取用户所有视频列表，并将视频对象逐个放入队列。
+    它不返回任何值，而是通过队列将数据传递给消费者。
+    同时，在获取到总数后更新 DelayManager。
+    """
     try:
         # 获取第一页以确认总页数，避免不必要请求
-        first_page = await fetch_video_page(mid, session, 1, page_size, delay_seconds)
+        first_page = await fetch_video_page(mid, session, 1, page_size)
         total_videos = first_page['total']
         total_pages = (total_videos + page_size - 1 ) // page_size
-        
-        DelayManager.get_instance().update_video_count(total_videos)  # 更新上一个用户的视频数量，用于后续的延迟计算
-        
-        all_videos = first_page['videos']
 
-        # 如果只有一页，直接返回
-        if total_pages == 1:
-            return all_videos
+        delay_manager.update_video_count(total_videos)
+
+        logger.info(f"用户 {mid} 所有视频列表获取任务启动：共 {total_videos} 个视频，分 {total_pages} 页")
+        
+        # 将第一页视频放入队列
+        for video in first_page['videos']:
+            await queue.put(video)
 
     except Exception as e:
-        logger.error(f"获取用户 {mid} 视频列表失败: {str(e)}")
-        return []
+        logger.error(f"获取用户 {mid} 初始信息失败，任务中止: {str(e)}")
+        return
     
-    # 为后续页面请求创建一个有限的并发控制器
-    # 并发请求应该尽可能的小，以模拟用户快速翻页
-    list_semaphore = asyncio.Semaphore(2)
-    async def fetch_page_with_semaphore(page_num):
-        async with list_semaphore:
-            return await fetch_video_page(mid, session, page_num, page_size, delay_seconds)
+    if total_pages <= 1:
+        logger.info(f"用户 {mid} 的所有视频列表均已放入队列")
+        return
     
-    # 从第二页开始创建任务
-    tasks = [fetch_page_with_semaphore(page) for page in range(2, total_pages + 1)]
+    # 从第二页开始获取
+    for page_num in range(2, total_pages + 1):
+        try:
+            await asyncio.sleep(PRODUCER_PAGE_DELAY_SECONDS)
+            page_result = await fetch_video_page(mid, session, page_num, page_size)
 
-    try:
-        # 使用tqdm来显示进度
-        remaining_pages = []
-        pbar = tqdm_asyncio(total=len(tasks), desc=f"获取用户 {mid} 视频列表", leave=False)
-        for f in asyncio.as_completed(tasks):
-            page_result = await f
-            if isinstance(page_result, dict):
-                remaining_pages.append(page_result)
-            pbar.update(1)
-        pbar.close()
-    except Exception as e:
-        logger.error(f"获取用户 {mid} 视频列表时发生错误: {str(e)}")
-        return []
-    
-    # 合并所有视频
-    for page in remaining_pages:
-        videos_in_page = page.get('videos', [])
+            videos_in_page = page_result.get('videos', [])
+            if not videos_in_page:
+                logger.warning(f"用户 {mid} 第 {page_num} 页没有获取到视频，可能已是最后一页")
+                break
 
-        # 确保 videos_in_page 是列表
-        if isinstance(videos_in_page, list):
-            all_videos.extend(videos_in_page)
-        else:
-            logger.warning(f"用户 {mid} 的某个分页返回了无效的 'videos' 字段, 已跳过. 数据: {videos_in_page}")
-    
-    return all_videos
+            for video in videos_in_page:
+                await queue.put(video)
+
+        except Exception as e:
+            logger.error(f"获取第 {page_num} 页时出错: {e}")
+            logger.info("等待30秒后继续尝试下一页...")
+            await asyncio.sleep(30)
+
+    logger.info(f"用户 {mid} 的所有视频列表均已放入队列。")
+
 
 async def fetch_batch_data(
         videos: List[Video],
