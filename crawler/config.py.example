@@ -9,15 +9,15 @@ INIT_SQL_PATH: str = "init.sql"
 # --- 全局行为控制 ---
 # 全局最大并发数：所有网络请求、数据库操作都受此限制(fetch_video_list除外)
 MAX_CONCURRENCY = 5
-# 视频块大小
-CHUNK_SIZE = 50  # 每次处理的视频块大小，50是一个安全且高效的选择
+# 队列最大容量：防止生产者过快，消耗太多内存
+MAX_QUEUE_SIZE = 200
 
 
 # --- 延迟控制 ---
 # 单个API请求之间的随机延迟
 DELAY_SECONDS = lambda: uniform(0.1, 0.3)
-# 每个视频块处理完成后的固定延迟
-CHUNK_DELAY_SECONDS = lambda: 5 + random() * 5
+# 生产者获取每页视频列表后的休眠时间（关键的风控规避策略）
+PRODUCER_PAGE_DELAY_SECONDS = 15
 
 
 # --- 用户切换动态延迟模型配置 ---
