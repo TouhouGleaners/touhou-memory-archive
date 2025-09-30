@@ -111,10 +111,11 @@ async def fetch_video_list(
     queue: asyncio.Queue,
     delay_manager: DelayManager,
     page_size: int = 50
-) -> list[Video]:
+) -> None:
     """
-    获取用户所有视频列表，并将视频逐个放入队列
-    此函数现在扮演生产者的角色，不再返回视频列表
+    生产者函数：获取用户所有视频列表，并将视频对象逐个放入队列。
+    它不返回任何值，而是通过队列将数据传递给消费者。
+    同时，在获取到总数后更新 DelayManager。
     """
     try:
         # 获取第一页以确认总页数，避免不必要请求
