@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
+class PageFetchExhaustedError(Exception):
+    """当获取单个页面在多次重试后仍然失败时抛出"""
+    pass
+
+
 async def make_api_request(
     url: str,
     params: Dict[str, Any],
@@ -80,9 +85,9 @@ async def make_api_request(
             await asyncio.sleep(delay_seconds())
 
 
-async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_number: int, page_size: int, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> dict:
+async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_num: int, page_size: int, delay_seconds: Callable[[], float] = DELAY_SECONDS) -> dict:
     """获取单页视频"""
-    params = {'mid': mid, 'pn': page_number, 'ps': page_size}
+    params = {'mid': mid, 'pn': page_num, 'ps': page_size}
 
     def process_video_page(data: Dict[str, Any]) -> dict:
         vlist = data['data']['list']['vlist']
@@ -90,11 +95,14 @@ async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_number
 
         page_videos = []
         for item in vlist:
+            if not item:
+                continue
             try:
                 page_videos.append(Video(item))
             except Exception as e:
-                logger.warning(f"视频 {item.get('bvid')} 数据解析错误: {e}")
-        return {'page': page_number, 'total': total_videos, 'videos': page_videos}
+                bvid = item.get('bvid', '未知bvid')
+                logger.warning(f"视频 {bvid} 数据解析错误，跳过: {e}")
+        return {'page': page_num, 'total': total_videos, 'videos': page_videos}
 
     return await make_api_request(
         url="https://api.bilibili.com/x/space/wbi/arc/search",
@@ -104,6 +112,31 @@ async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_number
         session=session,
         delay_seconds=delay_seconds,
     )
+
+async def _fetch_page_with_retry(
+    mid: int,
+    session: aiohttp.ClientSession,
+    page_num: int,
+    page_size: int,
+    max_retries: int = 3,
+    base_retry_delay: int = 30
+) -> dict:
+    """
+    获取单个视频列表页面，并内置长间隔的业务重试逻辑
+    成功则返回页面结果，重试耗尽后则抛出 PageFetchExhaustedError
+    """
+    for attempt in range(max_retries):
+        try:
+            page_result = await fetch_video_page(mid, session, page_num, page_size)
+            return page_result
+        except Exception as e:
+            logger.error(f"获取用户 {mid} 第 {page_num} 页时出错 (尝试 {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                retry_delay = base_retry_delay * (attempt + 1)
+                logger.info(f"等待 {retry_delay} 秒后继续尝试...")
+                await asyncio.sleep(retry_delay)
+    raise PageFetchExhaustedError(f"用户 {mid} 的第 {page_num} 页在 {max_retries} 次尝试后仍然获取失败")
+    
 
 async def fetch_video_list(
     mid: int,
@@ -119,7 +152,7 @@ async def fetch_video_list(
     """
     try:
         # 获取第一页以确认总页数，避免不必要请求
-        first_page = await fetch_video_page(mid, session, 1, page_size)
+        first_page = await _fetch_page_with_retry(mid, session, 1, page_size)
         total_videos = first_page['total']
         total_pages = (total_videos + page_size - 1 ) // page_size
 
@@ -131,19 +164,19 @@ async def fetch_video_list(
         for video in first_page['videos']:
             await queue.put(video)
 
-    except Exception as e:
-        logger.error(f"获取用户 {mid} 初始信息失败，任务中止: {str(e)}")
+    except (PageFetchExhaustedError, Exception) as e:
+        logger.critical(f"获取用户 {mid} 初始信息失败，任务中止: {str(e)}")
         return
     
     if total_pages <= 1:
-        logger.info(f"用户 {mid} 的所有视频列表均已放入队列")
+        logger.info(f"用户 {mid} 的所有视频列表均已放入队列(只有一页)")
         return
     
     # 从第二页开始获取
     for page_num in range(2, total_pages + 1):
         try:
             await asyncio.sleep(PRODUCER_PAGE_DELAY_SECONDS)
-            page_result = await fetch_video_page(mid, session, page_num, page_size)
+            page_result = await _fetch_page_with_retry(mid, session, page_num, page_size)
 
             videos_in_page = page_result.get('videos', [])
             if not videos_in_page:
@@ -153,12 +186,12 @@ async def fetch_video_list(
             for video in videos_in_page:
                 await queue.put(video)
 
-        except Exception as e:
-            logger.error(f"获取第 {page_num} 页时出错: {e}")
-            logger.info("等待30秒后继续尝试下一页...")
-            await asyncio.sleep(30)
+        except PageFetchExhaustedError as e:
+            logger.critical(f"发生严重错误: {e}")
+            logger.critical(f"由于无法获取完整数据，中止对用户 {mid} 的处理任务")
+            return
 
-    logger.info(f"用户 {mid} 的所有视频列表均已放入队列。")
+    logger.info(f"用户 {mid} 的所有视频列表均已放入队列")
 
 
 async def fetch_batch_data(
