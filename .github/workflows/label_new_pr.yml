@@ -4,7 +4,7 @@ on:
     types: [opened]
 jobs:
   add-label:
-    name: Add "Status: Triage" Label
+    name: 'Add "Status: Triage" Label'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
