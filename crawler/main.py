@@ -4,10 +4,10 @@ import asyncio
 import aiohttp
 import logging
 
-from config import DB_PATH, MAX_CONCURRENCY, MAX_QUEUE_SIZE
-from delay_manager import DelayManager
+from .config import DB_PATH, MAX_CONCURRENCY, MAX_QUEUE_SIZE
+from .delay_manager import DelayManager
 from shared.database import Database, init_db
-from fetcher import fetch_video_list, fetch_parts, fetch_tags
+from .fetcher import fetch_video_list, fetch_parts, fetch_tags
 from shared.video import Video
 
 logger = logging.getLogger(__name__)

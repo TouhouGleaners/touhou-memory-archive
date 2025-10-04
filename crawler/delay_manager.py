@@ -2,7 +2,7 @@ import logging
 from random import uniform
 from typing import Optional
 
-from config import USER_SWITCH_CONFIG
+from .config import USER_SWITCH_CONFIG
 
 logger = logging.getLogger(__name__)
 
