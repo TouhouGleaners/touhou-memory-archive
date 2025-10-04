@@ -1,6 +1,6 @@
 import sqlite3
 
-from config import DB_PATH, INIT_SQL_PATH
+from crawler.config import DB_PATH, INIT_SQL_PATH
 from video import Video, VideoPart
 
 

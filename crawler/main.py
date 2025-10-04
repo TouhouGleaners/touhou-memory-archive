@@ -6,9 +6,9 @@ import logging
 
 from config import DB_PATH, MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from delay_manager import DelayManager
-from database import Database, init_db
+from shared.database import Database, init_db
 from fetcher import fetch_video_list, fetch_parts, fetch_tags
-from video import Video
+from shared.video import Video
 
 logger = logging.getLogger(__name__)
 
