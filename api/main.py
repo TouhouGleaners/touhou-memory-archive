@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
@@ -28,9 +28,11 @@ def read_videos():
     """
     提供视频列表的 JSON 数据给前端
     """
-    videos_data = Database.get_all_videos_for_api()
-    return videos_data
+    try:
+        return Database.get_all_videos_for_api()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while fetching videos.") from e
 
 @app.get("/")
 def read_root():
-    return {"code": 200, "message": "Welcome to Touhou Memory Archive API"}
+    return {"message": "Welcome to Touhou Memory Archive API"}
