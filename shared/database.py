@@ -73,4 +73,41 @@ class Database:
         """更新视频状态（不自动提交）"""
         sql = "UPDATE videos SET touhou_status = ? WHERE aid = ?"
         self.cursor.execute(sql, (touhou_status, aid))
+
+    @staticmethod
+    def get_all_videos_for_api() -> list[dict]:
+        """
+        为 API 设计的函数：从数据库中获取所有视频信息，
+        并将其格式化为前端需要的结构。
+        """
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM videos ORDER BY created DESC")
+        rows = cursor.fetchall()
+
+        videos_list = []
+        if not rows:
+            conn.close()
+            return []
+        for row in rows:
+            video_data = dict(row)
+            current_aid = video_data['aid']
+
+            parts_cursor = conn.cursor()
+            parts_cursor.execute("SELECT * FROM video_parts WHERE aid = ?", (current_aid,))
+            parts_rows = parts_cursor.fetchall()
+            video_data['parts'] = [dict(p_row) for p_row in parts_rows]
+            # 将 tags 字符串按逗号分割为列表
+            tags_str = video_data.get('tags')
+            if tags_str:
+                video_data['tags'] = [tag.strip() for tag in tags_str.split(',')]
+            else:
+                video_data['tags'] = []
+
+            videos_list.append(video_data)
+
+        conn.close()
+        return videos_list
+
     # TODO: add new user
