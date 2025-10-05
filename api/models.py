@@ -21,7 +21,7 @@ class Video(BaseModel):
     pic: str
     created: int
     touhou_status: int
-    parts: List[VideoPart]= Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
+    parts: List[VideoPart]= Field(default_factory=list)
     class Config:
         from_attributes = True
