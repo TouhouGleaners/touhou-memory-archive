@@ -1,7 +1,7 @@
 import sqlite3
 
-from config import DB_PATH, INIT_SQL_PATH
-from video import Video, VideoPart
+from crawler.config import DB_PATH, INIT_SQL_PATH
+from .video import Video, VideoPart
 
 
 def init_db(db_path: str = DB_PATH, init_sql_path: str = INIT_SQL_PATH):
