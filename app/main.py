@@ -1,18 +1,19 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
 
-from .models import Video
-from shared.database import Database
+from .api.v1 import videos
 
-
-app = FastAPI()
+app = FastAPI(
+    title="Touhou Memory Archive API",
+    description="API for accessing Touhou Memory video archive data.",
+    version="1.0.0",
+)
 
 origins = [
     "http://localhost",
-    "http://localhost:5173",  # Vite
-    "http://localhost:8080",  # Vue CLI
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
 ]
 
 app.add_middleware(
@@ -23,16 +24,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
 
-@app.get("/api/v1/videos", response_model=List[Video])
-def read_videos():
-    """
-    提供视频列表的 JSON 数据给前端
-    """
-    try:
-        return Database.get_all_videos_for_api()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An error occurred while fetching videos.") from e
 
 @app.get("/")
 def read_root():
