@@ -5,7 +5,7 @@ from typing import Callable, TypeVar, Dict, List, Tuple, Any
 
 from .config import HEADERS, DELAY_SECONDS, BATCH_FETCH_CONFIG, PRODUCER_PAGE_DELAY_SECONDS
 from .delay_manager import DelayManager
-from shared.video import Video, VideoPart
+from .video import Video, VideoPart
 from .wbi_signer import WbiSigner
 
 
