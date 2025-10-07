@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-import sqlite3
 
 from ...models import Video
 from ...database import get_db, get_all_videos, get_video_parts
@@ -8,7 +7,7 @@ from ...database import get_db, get_all_videos, get_video_parts
 
 router = APIRouter()
 @router.get("", response_model=List[Video])
-def read_videos(db: sqlite3.Connection = Depends(get_db)):
+def read_videos(db = Depends(get_db)):
     """提供视频列表的 JSON 数据给前端"""
     try:
         videos = get_all_videos(db)
