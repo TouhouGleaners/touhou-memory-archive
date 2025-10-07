@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.v1 import videos
+from .api.v1 import videos, users
 
 app = FastAPI(
     title="Touhou Memory Archive API",
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
 
 @app.get("/")
