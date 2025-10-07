@@ -12,6 +12,7 @@ origins = [
     "http://localhost",
     "http://localhost:5173",  # Vite
     "http://localhost:8080",  # Vue CLI
+    "http://localhost:3000"
 ]
 
 app.add_middleware(

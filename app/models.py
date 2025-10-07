@@ -25,3 +25,10 @@ class Video(BaseModel):
     parts: List[VideoPart]= Field(default_factory=list)
     class Config:
         from_attributes = True
+
+
+class User(BaseModel):
+    mid: int
+    name: str
+    class Config:
+        from_attributes = True
