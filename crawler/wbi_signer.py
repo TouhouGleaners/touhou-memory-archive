@@ -2,7 +2,7 @@ from functools import reduce
 from hashlib import md5
 import urllib.parse
 import time
-import requests
+import aiohttp
 from typing import Optional, Tuple
 
 
@@ -44,7 +44,7 @@ class WbiSigner:
         return params
 
     @classmethod
-    def get_wbi_keys(cls) -> tuple[str, str]:
+    async def get_wbi_keys(cls) -> tuple[str, str]:
         """获取最新的 img_key 和 sub_key，带缓存机制"""
         current_time = time.time()
         
@@ -58,9 +58,12 @@ class WbiSigner:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
             'Referer': 'https://www.bilibili.com/'
         }
-        resp = requests.get('https://api.bilibili.com/x/web-interface/nav', headers=headers)
-        resp.raise_for_status()
-        json_content = resp.json()
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://api.bilibili.com/x/web-interface/nav', headers=headers) as resp:
+                resp.raise_for_status()
+                json_content = await resp.json()
+
         img_url: str = json_content['data']['wbi_img']['img_url']
         sub_url: str = json_content['data']['wbi_img']['sub_url']
         img_key = img_url.rsplit('/', 1)[1].split('.')[0]

@@ -1,19 +1,21 @@
-class Video:
-    def __init__(self, data: dict):
-        self.aid = data['aid']
-        self.bvid = data['bvid']
-        self.mid = data['mid']
-        self.title = data['title']
-        self.description = data['description']
-        self.pic = data['pic']
-        self.created = data['created']
-        self.tags = []
-        self.touhou_status = 0
+from pydantic import BaseModel, Field
 
-class VideoPart:
-    def __init__(self, data: dict):
-        self.cid = data['cid']
-        self.page = data['page']
-        self.part = data['part']
-        self.duration = data['duration']
-        self.ctime = data['ctime']
+
+class VideoPart(BaseModel):
+    cid: int
+    page: int
+    part: str
+    duration: int
+    ctime: int
+
+class Video(BaseModel):
+    aid: int
+    bvid: str
+    mid: int
+    title: str
+    description: str
+    pic: str
+    created: int
+    tags: list[str] = Field(default_factory=list)
+    parts: list[VideoPart] = Field(default_factory=list)
+    touhou_status: int = 0  # 0:未检测 1:自动检测为东方 2:自动检测为非东方 3:人工确认为东方 4:人工确认为非东方
