@@ -1,5 +1,4 @@
 import os
-import re
 import asyncio
 import aiohttp
 import logging
@@ -7,7 +6,7 @@ import logging
 from .config import DB_PATH, MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from .delay_manager import DelayManager
 from .database import Database, init_db
-from .fetcher import fetch_video_list, fetch_parts, fetch_tags
+from .bili_api_client import BiliApiClient
 from .video import Video
 from .service import VideoService
 
@@ -19,9 +18,7 @@ async def process_video_worker(
     service: VideoService,
     semaphore: asyncio.Semaphore
 ):
-    """
-    消费者 Worker: 从队列中获取并处理单个视频，直至队列为空并收到结束信号
-    """
+    """消费者 Worker: 从队列中获取视频，并委托给 Service 进行处理。"""
     while True:
         video: Video = await queue.get()
         if video is None:
@@ -29,7 +26,7 @@ async def process_video_worker(
         try:
             await service.process_video(video, semaphore)
         except Exception as e:
-            logger.error(f"Worker处理视频 {video.bvid} 失败: {str(e)}")
+            pass
         finally:
             queue.task_done()
 
@@ -50,7 +47,9 @@ async def main():
         delay_manager = DelayManager.get_instance()
 
         async with aiohttp.ClientSession() as session:
-            video_service = VideoService(session, db)
+            bili_client = BiliApiClient(session)
+            video_service = VideoService(bili_client, db)
+
             for user in users:
                 logger.info(f"--- 开始处理用户 {user} ---")
 
@@ -58,7 +57,7 @@ async def main():
 
                 # 启动生产者任务，填充队列，在内部更新delay_manager
                 producer_task = asyncio.create_task(
-                    fetch_video_list(user, session, video_queue, delay_manager)
+                    bili_client.get_user_all_videos(user, video_queue, delay_manager)
                 )
 
                 # 启动一组消费者任务

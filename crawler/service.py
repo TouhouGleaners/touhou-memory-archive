@@ -1,22 +1,18 @@
 import re
 import logging
 import asyncio
-import aiohttp
 
 from .database import Database
-from .fetcher import fetch_tags, fetch_parts
+from .bili_api_client import BiliApiClient
 from .video import Video
 
 logger = logging.getLogger(__name__)
 
 
 class VideoService:
-    """
-    封装所有视频处理相关的业务逻辑。
-    这是一个无状态的服务，其依赖项在创建时被注入。
-    """
-    def __init__(self, session: aiohttp.ClientSession, db: Database):
-        self.session = session
+    """封装所有视频处理相关的业务逻辑"""
+    def __init__(self, client: BiliApiClient, db: Database):
+        self.client = client
         self.db = db
         self.tag_pattern = re.compile(r'^\$发现《.+?》\^$')
         self.touhou_keywords = {
@@ -32,15 +28,16 @@ class VideoService:
     async def process_video(self, video: Video, semaphore: asyncio.Semaphore):
         """处理单个视频的完整业务流程"""
         try:
-            # 并发获取tags和分P信息
-            tags_task = fetch_tags([video], self.session, semaphore)
-            parts_task = fetch_parts([video], self.session, semaphore)
-            tags_dict, parts_dict = await asyncio.gather(tags_task, parts_task)
+            async with semaphore:
+                tags_task = self.client.get_video_tags(video.bvid)
+            async with semaphore:
+                parts_task = self.client.get_video_parts(video.bvid)
+
+            video_tags, video_parts = await asyncio.gather(tags_task, parts_task)
 
             # 丰富 Video 对象
-            video_tags = tags_dict.get(video.bvid, [])
-            video.tags = [tag for tag in video_tags if not self.tag_pattern.match(tag)]
-            video.parts = parts_dict.get(video.bvid, [])
+            video_tags = [tag for tag in video_tags if not self.tag_pattern.match(tag)]
+            video.parts = video_parts
             video.touhou_status = self._is_touhou(video.tags)
 
             # 保存信息
