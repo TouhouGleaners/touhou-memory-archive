@@ -9,23 +9,14 @@ from .delay_manager import DelayManager
 from .database import Database, init_db
 from .fetcher import fetch_video_list, fetch_parts, fetch_tags
 from .video import Video
+from .service import VideoService
 
 logger = logging.getLogger(__name__)
 
 
-def is_touhou(tags: list[str]) -> int:
-    """自动检测是否为东方视频 是:1 否:2"""
-    touhou_keywords = {
-        "东方Project", "东方project", "东方PROJECT",
-        "東方Project", "東方project", "東方PROJECT",
-        "Touhou", "東方", "车万", "ZUN", "Zun", "zun"
-    }
-    return 1 if any(keyword in tag for tag in tags for keyword in touhou_keywords) else 2
-
 async def process_video_worker(
     queue: asyncio.Queue,
-    session: aiohttp.ClientSession,
-    db: Database,
+    service: VideoService,
     semaphore: asyncio.Semaphore
 ):
     """
@@ -36,21 +27,7 @@ async def process_video_worker(
         if video is None:
             break
         try:
-            # 并发获取标签和分P信息
-            tags_tasks = fetch_tags([video], session, semaphore)
-            parts_tasks = fetch_parts([video], session, semaphore)
-            tags_dict, parts_dict = await asyncio.gather(tags_tasks, parts_tasks)
-
-            video_tags = tags_dict.get(video.bvid, [])
-            video_parts = parts_dict.get(video.bvid, [])
-            pattern = re.compile(r'^\$发现《.+?》\^$')
-
-            video.tags = [tag for tag in video_tags if not pattern.match(tag)]
-            video.parts = video_parts
-            video.touhou_status = is_touhou(video.tags)
-
-            with db.transaction():
-                db.save_video_info(video)
+            await service.process_video(video, semaphore)
         except Exception as e:
             logger.error(f"Worker处理视频 {video.bvid} 失败: {str(e)}")
         finally:
@@ -73,6 +50,7 @@ async def main():
         delay_manager = DelayManager.get_instance()
 
         async with aiohttp.ClientSession() as session:
+            video_service = VideoService(session, db)
             for user in users:
                 logger.info(f"--- 开始处理用户 {user} ---")
 
@@ -86,7 +64,7 @@ async def main():
                 # 启动一组消费者任务
                 consumer_tasks = [
                     asyncio.create_task(
-                        process_video_worker(video_queue, session, db, semaphore)
+                        process_video_worker(video_queue, video_service, semaphore)
                     )
                     for _ in range(MAX_CONCURRENCY)
                 ]
