@@ -44,22 +44,13 @@ async def process_video_worker(
             video_tags = tags_dict.get(video.bvid, [])
             video_parts = parts_dict.get(video.bvid, [])
             pattern = re.compile(r'^\$发现《.+?》\^$')
+
             video.tags = [tag for tag in video_tags if not pattern.match(tag)]
             video.parts = video_parts
+            video.touhou_status = is_touhou(video.tags)
 
-            db.begin_transaction()
-            try:
+            with db.transaction():
                 db.save_video_info(video)
-                if video.parts:
-                    db.save_parts_info(video.aid, video.parts)
-                
-                touhou_status = is_touhou(video.tags)
-                db.save_video_tags(video.aid, video.tags)
-                db.update_video_status(video.aid, touhou_status)
-                db.commit_transaction()
-            except Exception as e:
-                db.rollback_transaction()
-                raise e
         except Exception as e:
             logger.error(f"Worker处理视频 {video.bvid} 失败: {str(e)}")
         finally:
@@ -72,52 +63,54 @@ async def main():
         logger.info("数据库初始化完成")
     db = Database()
 
-    users = db.get_users()
-    if not users:
-        logger.warning("数据库中没有用户，程序退出。")
-        return
+    try:
+        users = db.get_users()
+        if not users:
+            logger.warning("数据库中没有用户，程序退出。")
+            return
     
-    semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
-    delay_manager = DelayManager.get_instance()
+        semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+        delay_manager = DelayManager.get_instance()
 
-    async with aiohttp.ClientSession() as session:
-        for user in users:
-            logger.info(f"--- 开始处理用户 {user} ---")
+        async with aiohttp.ClientSession() as session:
+            for user in users:
+                logger.info(f"--- 开始处理用户 {user} ---")
 
-            video_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
+                video_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
 
-            # 启动生产者任务，填充队列，在内部更新delay_manager
-            producer_task = asyncio.create_task(
-                fetch_video_list(user, session, video_queue, delay_manager)
-            )
-
-            # 启动一组消费者任务
-            consumer_tasks = [
-                asyncio.create_task(
-                    process_video_worker(video_queue, session, db, semaphore)
+                # 启动生产者任务，填充队列，在内部更新delay_manager
+                producer_task = asyncio.create_task(
+                    fetch_video_list(user, session, video_queue, delay_manager)
                 )
-                for _ in range(MAX_CONCURRENCY)
-            ]
 
-            await producer_task         # 等待生产者完成（所有视频bvid都已放入队列)
-            await video_queue.join()    # 生产者完成后，等待队列被消费者完全清空
+                # 启动一组消费者任务
+                consumer_tasks = [
+                    asyncio.create_task(
+                        process_video_worker(video_queue, session, db, semaphore)
+                    )
+                    for _ in range(MAX_CONCURRENCY)
+                ]
 
-            # 发送结束信号(None)给所有消费者
-            for _ in range(MAX_CONCURRENCY):
-                await video_queue.put(None)
+                await producer_task         # 等待生产者完成（所有视频bvid都已放入队列)
+                await video_queue.join()    # 生产者完成后，等待队列被消费者完全清空
 
-            # 等待所有消费者任务都确认退出
-            await asyncio.gather(*consumer_tasks)
-            logger.info(f"--- 用户 {user} 处理完成 ---")
+                # 发送结束信号(None)给所有消费者
+                for _ in range(MAX_CONCURRENCY):
+                    await video_queue.put(None)
 
-            # 在处理下一个用户前，应用动态延迟
-            if user != users[-1]:
-                switch_delay = delay_manager.get_user_switch_delay()
-                logger.info(f"将在 {switch_delay:.2f} 秒后处理下一个用户...")
-                await asyncio.sleep(switch_delay)
-                
-    db.close()
-    logger.info("所有用户处理完毕，程序退出")
+                # 等待所有消费者任务都确认退出
+                await asyncio.gather(*consumer_tasks)
+                logger.info(f"--- 用户 {user} 处理完成 ---")
+
+                # 在处理下一个用户前，应用动态延迟
+                if user != users[-1]:
+                    switch_delay = delay_manager.get_user_switch_delay()
+                    logger.info(f"将在 {switch_delay:.2f} 秒后处理下一个用户...")
+                    await asyncio.sleep(switch_delay)
+                    
+        logger.info("所有用户处理完毕，程序退出")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

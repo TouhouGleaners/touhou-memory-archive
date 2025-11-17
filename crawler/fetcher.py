@@ -48,7 +48,7 @@ async def make_api_request(
         Exception: API 请求失败或数据处理出错
     """
     if need_wbi:
-        img_key, sub_key = WbiSigner.get_wbi_keys()
+        img_key, sub_key = await WbiSigner.get_wbi_keys()
         params = WbiSigner.enc_wbi(params, img_key, sub_key)
     
     for attempt in range(retry_times):
@@ -98,7 +98,7 @@ async def fetch_video_page(mid: int, session: aiohttp.ClientSession, page_num: i
             if not item:
                 continue
             try:
-                page_videos.append(Video(item))
+                page_videos.append(Video.model_validate(item))
             except Exception as e:
                 bvid = item.get('bvid', '未知bvid')
                 logger.warning(f"视频 {bvid} 数据解析错误，跳过: {e}")
@@ -294,7 +294,7 @@ async def fetch_parts(videos: List[Video], session: aiohttp.ClientSession, semap
     """批量获取视频分P信息"""
     def process_parts(data: Dict[str, Any]) -> List[VideoPart]:
         try:
-            return list(map(VideoPart, data['data']))
+            return [VideoPart.model_validate(p) for p in data.get('data', [])]
         except Exception as e:
             raise Exception(f"分P数据解析失败: {e}")
         
@@ -310,7 +310,7 @@ async def fetch_parts(videos: List[Video], session: aiohttp.ClientSession, semap
 async def fetch_tags(videos: List[Video], session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, **kwargs) -> Dict[str, List[str]]:
     """批量获取视频标签"""
     def process_tags(data: Dict[str, Any]) -> List[str]:
-        return list(map(lambda tag: tag['tag_name'], data.get('data', [])))
+        return [tag['tag_name'] for tag in data.get('data', [])]
     
     return await fetch_batch_data(
         videos=videos,
