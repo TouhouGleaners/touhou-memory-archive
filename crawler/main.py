@@ -7,7 +7,7 @@ from .config import DB_PATH, MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from .delay_manager import DelayManager
 from .database import Database, init_db
 from .bili_api_client import BiliApiClient
-from .video import Video
+from ..shared.models.video import Video
 from .service import VideoService
 
 logger = logging.getLogger(__name__)

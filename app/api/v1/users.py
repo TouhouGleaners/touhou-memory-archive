@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path
 
-from ...models import User
+from shared.models.user import User
 from ...database import get_db, get_user_by_mid
 
 
