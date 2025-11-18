@@ -44,14 +44,14 @@ class Database:
         """保存视频信息"""
         video_sql = """
         INSERT OR REPLACE INTO 
-        videos (aid, bvid, mid, title, description, pic, created, tags, touhou_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        videos (aid, bvid, mid, title, description, pic, created, tags, touhou_status, season_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         tags_str = ','.join(video.tags)
         video_params = (
             video.aid, video.bvid, video.mid, video.title, video.description, 
-            video.pic, video.created, tags_str, video.touhou_status
+            video.pic, video.created, tags_str, video.touhou_status, video.season_id
         )
         self.cursor.execute(video_sql, video_params)
         
