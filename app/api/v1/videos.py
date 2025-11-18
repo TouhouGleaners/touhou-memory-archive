@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
 
-from ...models import Video
+from shared.models.video import Video
 from ...database import get_db, get_all_videos, get_video_parts
 
 
 router = APIRouter()
-@router.get("", response_model=List[Video])
+@router.get("", response_model=list[Video])
 def read_videos(db = Depends(get_db)):
     """提供视频列表的 JSON 数据给前端"""
     try:
@@ -22,7 +21,7 @@ def read_videos(db = Depends(get_db)):
             tags_str = video_data.get('tags')
             video_data['tags'] = [tag.strip() for tag in tags_str.split(',')] if tags_str else []
 
-            response_videos.append(video_data)
+            response_videos.append(Video.model_validate(video_data))
         
         return response_videos
     except Exception as e:
