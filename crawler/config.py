@@ -42,7 +42,7 @@ BATCH_FETCH_CONFIG = {
 # --- 请求头信息 ---
 SESSDATA = os.getenv('SESSDATA')
 if not SESSDATA:
-    print("警告: 未在 .env 文件中找到 SESSDATA。部分需要登录的 API 请求可能会失败。")
+    raise ValueError("Error: 必需的环境变量 SESSDATA 未设置。请将 .env.example 复制为 .env 并填入你的 SESSDATA 值。")
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
