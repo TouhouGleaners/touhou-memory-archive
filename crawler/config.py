@@ -1,9 +1,12 @@
-from random import random
+import os
+from random import uniform
 from pathlib import Path
+from dotenv import load_dotenv
 
 
+load_dotenv()
 DB_PATH = Path(__file__).parent.parent / "bili_videos.db"
-INIT_SQL_PATH: str = "init.sql" 
+INIT_SQL_PATH: str = Path(__file__).parent / "init.sql" 
 
 
 # --- 全局行为控制 ---
@@ -15,7 +18,7 @@ MAX_QUEUE_SIZE = 200
 
 # --- 延迟控制 ---
 # 单个API请求之间的随机延迟
-DELAY_SECONDS = lambda: uniform(0.1, 0.3)
+DELAY_SECONDS = lambda: uniform(0.3, 0.5)
 # 生产者获取每页视频列表后的休眠时间（关键的风控规避策略）
 PRODUCER_PAGE_DELAY_SECONDS = 15
 
@@ -37,7 +40,10 @@ BATCH_FETCH_CONFIG = {
 
 
 # --- 请求头信息 ---
-SESSDATA: str = """"""
+SESSDATA = os.getenv('SESSDATA')
+if not SESSDATA:
+    print("警告: 未在 .env 文件中找到 SESSDATA。部分需要登录的 API 请求可能会失败。")
+
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
     'Cookie': f'SESSDATA={SESSDATA}',

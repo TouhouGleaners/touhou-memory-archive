@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 
 from .config import DB_PATH, INIT_SQL_PATH
-from ..shared.models.video import Video
+from shared.models.video import Video
 
 
 def init_db(db_path: str = DB_PATH, init_sql_path: str = INIT_SQL_PATH):
