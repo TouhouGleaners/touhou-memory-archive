@@ -139,7 +139,7 @@ class BiliApiClient:
 
             except Exception as e:
                 logger.error(f"获取合集 season_id={season_id} 第 {page_num} 页失败: {e}")
-                return all_videos
+                raise
             
         logger.info(f"合集 season_id={season_id} 获取完成，共 {len(all_videos)} 个视频。")
         return all_videos
