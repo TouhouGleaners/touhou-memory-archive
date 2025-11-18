@@ -5,7 +5,7 @@ from typing import Callable, TypeVar, Any
 
 from .config import HEADERS, DELAY_SECONDS, PRODUCER_PAGE_DELAY_SECONDS
 from .delay_manager import DelayManager
-from ..shared.models.video import Video, VideoPart
+from shared.models.video import Video, VideoPart
 from .wbi_signer import WbiSigner
 
 

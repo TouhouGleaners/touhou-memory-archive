@@ -193,6 +193,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-config.py
-*.csv
 *.db
