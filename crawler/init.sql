@@ -13,6 +13,7 @@ CREATE TABLE videos (
     created TIMESTAMP,
     tags TEXT,
     touhou_status INTEGER NOT NULL DEFAULT 0,  -- 0:未检测 1:自动检测为东方 2:自动检测为非东方 3:人工确认为东方 4:人工确认为非东方
+    season_id INT,
     FOREIGN KEY (mid) REFERENCES users (mid)
 );
 

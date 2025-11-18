@@ -33,11 +33,22 @@ class VideoService:
             async with semaphore:
                 parts_task = self.client.get_video_parts(video.bvid)
 
-            video_tags, video_parts = await asyncio.gather(tags_task, parts_task)
+            results = await asyncio.gather(tags_task, parts_task, return_exceptions=True)
+            
+            video_tags_result = []
+            if not isinstance(results[0], Exception):
+                video_tags_result = results[0]
+            else:
+                logger.warning(f"获取视频 {video.bvid} 的标签失败: {results[0]}")
 
-            # 丰富 Video 对象
-            video_tags = [tag for tag in video_tags if not self.tag_pattern.match(tag)]
-            video.parts = video_parts
+            video_parts_result = []
+            if not isinstance(results[1], Exception):
+                video_parts_result = results[1]
+            else:
+                logger.warning(f"获取视频 {video.bvid} 的分P信息失败: {results[1]}")
+
+            video.tags = [tag for tag in video_tags_result if not self.tag_pattern.match(tag)]
+            video.parts = video_parts_result
             video.touhou_status = self._is_touhou(video.tags)
 
             # 保存信息

@@ -89,6 +89,60 @@ class BiliApiClient:
             finally:
                 await asyncio.sleep(delay_seconds())
 
+    async def get_season_videos(self, mid: int, season_id: int) -> list[Video]:
+        """根据mid和season_id获取并返回一个合集中的所有视频"""
+        logger.info(f"发现合集 season_id={season_id}，正在获取其内部视频...")
+
+        all_videos = []
+        page_num = 1
+        page_size = 50
+
+        # 构造API需要的特定Referer
+        referer_url = f'https://space.bilibili.com/{mid}/lists/{season_id}?type=season'
+        request_headers = HEADERS.copy()
+        request_headers['Referer'] = referer_url
+
+        while True:
+            params = {'mid': mid, 'season_id': season_id, 'page_num': page_num, 'page_size': page_size}
+            
+            try:
+                async with self.session.get(
+                    "https://api.bilibili.com/x/polymer/web-space/seasons_archives_list",
+                    params=params,
+                    headers=request_headers
+                ) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+                    if data.get('code') != 0:
+                        raise Exception(f"合集API返回错误: {data.get('message', '未知错误')}")
+                    
+                    archives: list = data.get('data', {}).get('archives', [])
+                    if not archives:
+                        break
+
+                    for archive_data in archives:
+                        archive_data['mid'] = mid
+                        archive_data['season_id'] = season_id
+                        try:
+                            all_videos.append(Video.model_validate(archive_data))
+                        except Exception as e:
+                            bvid = archive_data.get('bvid', '未知bvid')
+                            logger.warning(f"解析合集内视频 {bvid} 数据失败，跳过: {e}")
+
+                    # 检查是否还有更多页面
+                    total_videos = data.get('data', {}).get('meta', {}).get('total', 0)
+                    if len(all_videos) >= total_videos:
+                        break # 已获取的视频数等于或超过总数，停止循环
+
+                    page_num += 1
+                    await asyncio.sleep(DELAY_SECONDS())
+
+            except Exception as e:
+                logger.error(f"获取合集 season_id={season_id} 第 {page_num} 页失败: {e}")
+                raise
+            
+        logger.info(f"合集 season_id={season_id} 获取完成，共 {len(all_videos)} 个视频。")
+        return all_videos
 
     async def _fetch_video_page(self, mid: int, page_num: int, page_size: int) -> dict:
         """获取单页视频"""
@@ -133,7 +187,8 @@ class BiliApiClient:
         delay_manager: DelayManager,
         page_size: int = 50
     ) -> None:
-        """生产者：获取用户所有视频，并放入队列"""
+        """生产者：获取用户所有视频，处理合集视频，并放入队列"""
+        processed_seasons = set()
         try:
             # 获取第一页以确认总页数，避免不必要请求
             first_page = await self._fetch_page_with_retry(mid, 1, page_size)
@@ -144,16 +199,21 @@ class BiliApiClient:
 
             logger.info(f"用户 {mid} 所有视频列表获取任务启动：共 {total_videos} 个视频，分 {total_pages} 页")
             
-            # 将第一页视频放入队列
             for video in first_page['videos']:
-                await queue.put(video)
+                if video.season_id and video.season_id not in processed_seasons:
+                    processed_seasons.add(video.season_id)
+                    season_videos = await self.get_season_videos(mid, video.season_id)
+                    for season_video in season_videos:
+                        await queue.put(season_video)
+                elif not video.season_id:
+                    await queue.put(video)
 
         except (PageFetchExhaustedError, Exception) as e:
             logger.critical(f"获取用户 {mid} 初始信息失败，任务中止: {str(e)}")
             return
         
         if total_pages <= 1:
-            logger.info(f"用户 {mid} 的所有视频列表均已放入队列(只有一页)")
+            logger.info(f"用户 {mid} 的所有视频列表（包括合集）均已放入队列(只有一页)")
             return
         
         # 从第二页开始获取
@@ -162,17 +222,17 @@ class BiliApiClient:
                 await asyncio.sleep(PRODUCER_PAGE_DELAY_SECONDS)
                 page_result = await self._fetch_page_with_retry(mid, page_num, page_size)
 
-                videos_in_page = page_result.get('videos', [])
-                if not videos_in_page:
-                    logger.warning(f"用户 {mid} 第 {page_num} 页没有获取到视频，可能已是最后一页")
-                    break
-
-                for video in videos_in_page:
-                    await queue.put(video)
+                for video in page_result.get('videos', []):
+                    if video.season_id and video.season_id not in processed_seasons:
+                        processed_seasons.add(video.season_id)
+                        season_videos = await self.get_season_videos(mid, video.season_id)
+                        for season_video in season_videos:
+                            await queue.put(season_video)
+                    elif not video.season_id:
+                        await queue.put(video)
 
             except PageFetchExhaustedError as e:
-                logger.critical(f"发生严重错误: {e}")
-                logger.critical(f"由于无法获取完整数据，中止对用户 {mid} 的处理任务")
+                logger.critical(f"发生严重错误: {e}, 中止对用户 {mid} 的处理")
                 return
 
         logger.info(f"用户 {mid} 的所有视频列表均已放入队列")
