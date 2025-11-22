@@ -26,3 +26,9 @@ def get_user_by_mid(db: sqlite3.Connection, mid: int) -> sqlite3.Row | None:
     cursor = db.execute("SELECT * FROM users WHERE mid = ?", (mid,))
     user = cursor.fetchone()
     return user
+
+def get_touhou_videos(db: sqlite3.Connection) -> list[sqlite3.Row]:
+    """获取所有东方视频信息"""
+    cursor = db.execute("SELECT * FROM videos WHERE touhou_status IN (1, 3) ORDER BY created DESC")
+    videos = cursor.fetchall()
+    return videos if videos else []
