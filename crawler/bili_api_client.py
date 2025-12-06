@@ -237,6 +237,14 @@ class BiliApiClient:
 
         logger.info(f"用户 {mid} 的所有视频列表均已放入队列")
 
+    async def get_video_info(self, bvid: str) -> dict:
+        """获取视频详情信息（包含简介、分P等）"""
+        return await self._make_request(
+            url="https://api.bilibili.com/x/web-interface/view",
+            params={'bvid': bvid},
+            process_data=lambda data: data.get('data', {})
+        )
+
     async def get_video_parts(self, bvid: str) -> list[VideoPart]:
         """获取单个视频的分P信息"""
         def process_parts(data: dict[str, Any]) -> list[VideoPart]:
