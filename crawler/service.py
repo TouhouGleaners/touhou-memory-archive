@@ -4,7 +4,7 @@ import asyncio
 
 from .database import Database
 from .bili_api_client import BiliApiClient
-from shared.models.video import Video
+from shared.models.video import Video, VideoPart
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,9 @@ class VideoService:
             async with semaphore:
                 tags_task = self.client.get_video_tags(video.bvid)
             async with semaphore:
-                parts_task = self.client.get_video_parts(video.bvid)
+                info_task = self.client.get_video_info(video.bvid)
 
-            results = await asyncio.gather(tags_task, parts_task, return_exceptions=True)
+            results = await asyncio.gather(tags_task, info_task, return_exceptions=True)
             
             video_tags_result = []
             if not isinstance(results[0], Exception):
@@ -41,14 +41,23 @@ class VideoService:
             else:
                 logger.warning(f"获取视频 {video.bvid} 的标签失败: {results[0]}")
 
-            video_parts_result = []
             if not isinstance(results[1], Exception):
-                video_parts_result = results[1]
+                view_info = results[1]
+                # 合集API没给简介，但view接口给了，这里覆盖更新
+                if 'desc' in view_info:
+                    video.description = view_info['desc']
+
+                # view接口返回的 pages 结构与 pagelist 接口基本一致
+                if 'pages' in view_info:
+                    try:
+                        video.parts = [VideoPart.model_validate(p) for p in view_info['pages']]
+                    except Exception as e:
+                         logger.warning(f"解析视频 {video.bvid} 分P模型失败: {e}")
+                         video.parts = []
             else:
                 logger.warning(f"获取视频 {video.bvid} 的分P信息失败: {results[1]}")
 
             video.tags = [tag for tag in video_tags_result if not self.tag_pattern.match(tag)]
-            video.parts = video_parts_result
             video.touhou_status = self._is_touhou(video.tags)
 
             # 保存信息
