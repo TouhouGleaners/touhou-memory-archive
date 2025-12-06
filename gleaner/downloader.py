@@ -5,10 +5,6 @@ from .config import PROXY_URL, FFMPEG_PATH
 
 def download_video(platform: str, origin_id: str, output_dir: Path, custom_title: str | None = None) -> str | None:
     """执行下载，返回保存的文件名 (静默模式)"""
-    if not FFMPEG_PATH.exists():
-        print(f"\n    [配置错误] 找不到 FFmpeg! 请确认文件位置: {FFMPEG_PATH}")
-        return None
-    
     # 构造 URL
     if platform == 'youtube': url = f"https://www.youtube.com/watch?v={origin_id}"
     elif platform == 'twitter': url = f"https://twitter.com/i/status/{origin_id}"

@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 from pathlib import Path
 
-from .config import COL_IDX_BV, COL_IDX_TITLE, COL_IDX_DESC
+from .config import COL_IDX_BV, COL_IDX_TITLE, COL_IDX_DESC, FFMPEG_PATH
 from .database import DatabaseManager
 from .utils import check_bilibili_alive, extract_origin_id, sanitize_filename
 from .downloader import download_video
@@ -26,6 +26,10 @@ class GleanerApp:
         
         if not self.excel_path.exists():
             print(f"错误: Excel文件未找到 {self.excel_path}")
+            return
+        
+        if not FFMPEG_PATH.exists():
+            print(f"错误: 找不到 FFmpeg! 请将 ffmpeg.exe 放置于: {FFMPEG_PATH}")
             return
 
         df = pd.read_excel(self.excel_path)

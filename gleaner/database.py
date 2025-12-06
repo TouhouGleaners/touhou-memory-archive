@@ -34,6 +34,8 @@ class DatabaseManager:
         # 读取主库 (只读)
         if self.main_db_path.exists():
             print(f"正在索引主数据库: {self.main_db_path.name} ...")
+
+            conn = None
             try:
                 # 尝试 URI 只读模式
                 conn_str = f"file:{self.main_db_path}?mode=ro"
@@ -46,7 +48,8 @@ class DatabaseManager:
                 cursor.execute("SELECT description FROM videos WHERE description IS NOT NULL AND description != ''")
                 while True:
                     rows = cursor.fetchmany(2000)
-                    if not rows: break
+                    if not rows:
+                        break
                     for row in rows:
                         res = extract_origin_id(row[0])
                         if res: 
