@@ -1,0 +1,65 @@
+import yt_dlp
+from pathlib import Path
+from .config import PROXY_URL, FFMPEG_PATH 
+
+
+def download_video(platform: str, origin_id: str, output_dir: Path, custom_title: str | None = None) -> str | None:
+    """执行下载，返回保存的文件名 (静默模式)"""
+    # 构造 URL
+    if platform == 'youtube': url = f"https://www.youtube.com/watch?v={origin_id}"
+    elif platform == 'twitter': url = f"https://twitter.com/i/status/{origin_id}"
+    elif platform == 'nico': url = f"https://www.nicovideo.jp/watch/{origin_id}"
+    else: return None
+
+    print(f"    -> 正在拉取: {url} ...", end="", flush=True)
+
+    if custom_title:
+        filename_tmpl = f"[{platform}] {origin_id} {custom_title}"
+    else:
+        filename_tmpl = f"[{platform}] {origin_id} %(title)s"
+    
+    save_tmpl = output_dir / filename_tmpl
+
+    ydl_opts = {
+        'outtmpl': str(save_tmpl) + ".%(ext)s",
+        'format': 'bestvideo+bestaudio/best', # 最佳画质
+        'ignoreerrors': True,
+        'quiet': True,        # 不打印解析日志
+        'no_warnings': True,  # 不打印警告
+        'noprogress': False,  # 打印进度条
+        
+        'proxy': PROXY_URL,
+        'ffmpeg_location': str(FFMPEG_PATH)
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            if info:
+                # 获取预测的文件名 (通常是 .webm 或 .mp4)
+                filename = ydl.prepare_filename(info)
+                final_path = Path(filename)
+                
+                # 如果预测的文件就在，直接返回
+                if final_path.exists():
+                    print(" [成功]")
+                    return str(final_path)
+                
+                # 如果不在，尝试常见的容器格式 (轮询检查)
+                possible_exts = ['.mkv', '.mp4', '.webm']
+                for ext in possible_exts:
+                    check_path = final_path.with_suffix(ext)
+                    if check_path.exists():
+                        print(" [成功]")
+                        return str(check_path)
+                
+                # 如果所有格式都找不到，说明下载或合并出了问题
+                print(f"\n    [X] 错误: 下载似乎完成但无法定位文件: {filename}")
+                return None
+
+    except Exception as e:
+        print(f"\n    [X] 下载出错: {e}")
+        return None
+    
+    print("    [X] 未能获取文件")
+    return None
