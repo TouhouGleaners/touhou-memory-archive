@@ -36,16 +36,27 @@ def download_video(platform: str, origin_id: str, output_dir: Path, custom_title
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             if info:
+                # 获取预测的文件名 (通常是 .webm 或 .mp4)
                 filename = ydl.prepare_filename(info)
-                
                 final_path = Path(filename)
-                if not final_path.exists():
-                    mkv_path = final_path.with_suffix('.mkv')
-                    if mkv_path.exists():
-                        filename = str(mkv_path)
                 
-                print("    [成功]")
-                return str(filename)
+                # 如果预测的文件就在，直接返回
+                if final_path.exists():
+                    print(" [成功]")
+                    return str(final_path)
+                
+                # 如果不在，尝试常见的容器格式 (轮询检查)
+                possible_exts = ['.mkv', '.mp4', '.webm']
+                for ext in possible_exts:
+                    check_path = final_path.with_suffix(ext)
+                    if check_path.exists():
+                        print(" [成功]")
+                        return str(check_path)
+                
+                # 如果所有格式都找不到，说明下载或合并出了问题
+                print(f"\n    [X] 错误: 下载似乎完成但无法定位文件: {filename}")
+                return None
+
     except Exception as e:
         print(f"\n    [X] 下载出错: {e}")
         return None
