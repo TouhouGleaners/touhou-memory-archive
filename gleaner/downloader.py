@@ -30,7 +30,7 @@ def download_video(platform: str, origin_id: str, output_dir: Path, custom_title
         'ignoreerrors': True,
         'quiet': True,        # 不打印解析日志
         'no_warnings': True,  # 不打印警告
-        'noprogress': False,   # 不打印进度条
+        'noprogress': False,  # 打印进度条
         
         'proxy': PROXY_URL,
         'ffmpeg_location': str(FFMPEG_PATH)

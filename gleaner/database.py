@@ -54,6 +54,9 @@ class DatabaseManager:
                 conn.close()
             except Exception as e:
                 print(f"[错误] 读取主库失败: {e}")
+            finally:
+                if conn:
+                    conn.close()
         
         # 读取历史库
         with sqlite3.connect(self.history_db_path) as conn:
