@@ -4,6 +4,7 @@ from pathlib import Path
 
 # --- ffmpeg ---
 FFMPEG_PATH = Path(__file__).parent / "ffmpeg.exe"
+
 # --- 网络配置 ---
 PROXY_URL = "http://127.0.0.1:7890"
 

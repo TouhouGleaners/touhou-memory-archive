@@ -17,8 +17,8 @@ def sanitize_filename(name: str) -> str:
     if not cleaned:  # 防止清洗后变为空字符串
         return "Untitled"
     
-    if len(cleaned) > 80:  # 限制长度
-        cleaned = cleaned[:80] + "..."
+    if len(cleaned) > 100:  # 限制长度
+        cleaned = cleaned[:100] + "..."
         
     return cleaned
 
