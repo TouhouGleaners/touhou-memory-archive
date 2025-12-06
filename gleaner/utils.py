@@ -13,7 +13,11 @@ def sanitize_filename(name: str) -> str:
     
     cleaned = re.sub(r'[<>:"/\\|?*]', '_', str(name))  # 替换非法字符(< > : " / \ | ? *)为下划线
     cleaned = cleaned.strip()  # 去除首尾空格
-    if len(cleaned) > 80:      # 限制长度
+
+    if not cleaned:  # 防止清洗后变为空字符串
+        return "Untitled"
+    
+    if len(cleaned) > 80:  # 限制长度
         cleaned = cleaned[:80] + "..."
         
     return cleaned

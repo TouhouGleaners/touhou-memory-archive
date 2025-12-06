@@ -51,7 +51,6 @@ class DatabaseManager:
                         res = extract_origin_id(row[0])
                         if res: 
                             whitelist[res] = "主数据库(已收录)"
-                conn.close()
             except Exception as e:
                 print(f"[错误] 读取主库失败: {e}")
             finally:
