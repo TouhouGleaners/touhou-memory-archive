@@ -1,40 +1,30 @@
+import logging
 import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 
 from shared.models.video import Video
-from ...database import get_db, get_all_videos, get_video_parts, get_touhou_videos
+from ...database import get_db
+from ...crud import crud_video
 
 
-def _process_video_rows(db: sqlite3.Connection, video_rows: list[sqlite3.Row]) -> list[Video]:
-    response_videos = []
-    for video_row in video_rows:
-        video_data = dict(video_row)
-
-        video_parts = get_video_parts(db, video_data['aid'])
-        video_data['parts'] = [dict(part) for part in video_parts]
-        tags_str = video_data.get('tags')
-        video_data['tags'] = [tag.strip() for tag in tags_str.split(',')] if tags_str else []
-
-        response_videos.append(Video.model_validate(video_data))
-    
-    return response_videos
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-@router.get("", response_model=list[Video])
-def read_videos(db = Depends(get_db)):
-    """提供视频列表的 JSON 数据给前端"""
-    try:
-        videos = get_all_videos(db)
-        return _process_video_rows(db, videos)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An error occurred while fetching videos.") from e
 
+@router.get("", response_model=list[Video])
+def read_videos(db: sqlite3.Connection = Depends(get_db)):
+    """获取所有视频列表"""
+    try:
+        return crud_video.get_videos(db, is_touhou=False)
+    except Exception as e:
+        logger.error(f"Error fetching videos: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching videos")
 
 @router.get("/touhou", response_model=list[Video])
-def read_touhou_videos(db = Depends(get_db)):
-    """提供东方视频列表的 JSON 数据给前端"""
+def read_touhou_videos(db: sqlite3.Connection = Depends(get_db)):
+    """只获取东方Project相关的视频"""
     try:
-        videos = get_touhou_videos(db)
-        return _process_video_rows(db, videos)
+        return crud_video.get_videos(db, is_touhou=True)
     except Exception as e:
-        raise HTTPException(status_code=500, detail="An error occurred while fetching touhou videos.") from e
+        logger.error(f"Error fetching touhou videos: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching touhou videos")
