@@ -13,6 +13,8 @@ HEADERS = {
     "Referer": "https://www.bilibili.com/"
 }
 
+COOKIE_FILE_PATH = Path(__file__).parent / "cookies.txt"
+
 # --- Excel 列索引配置 (根据实际情况修改) ---
 COL_IDX_BV = 1    # BV号所在列 (0起始)
 COL_IDX_TITLE = 7  # 标题所在列

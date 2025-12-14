@@ -68,7 +68,7 @@ class GleanerApp:
                 time.sleep(0.2)
                 continue
             else:
-                print(" -> [失效]!")
+                print(" -> [失效]")
 
             # 下载
             print(f"    [+] 触发补档: {platform}/{origin_id}")

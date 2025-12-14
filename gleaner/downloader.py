@@ -1,6 +1,6 @@
 import yt_dlp
 from pathlib import Path
-from .config import PROXY_URL, FFMPEG_PATH 
+from .config import PROXY_URL, FFMPEG_PATH, COOKIE_FILE_PATH
 
 
 def download_video(platform: str, origin_id: str, output_dir: Path, custom_title: str | None = None) -> str | None:
@@ -32,6 +32,10 @@ def download_video(platform: str, origin_id: str, output_dir: Path, custom_title
         'ffmpeg_location': str(FFMPEG_PATH)
     }
 
+    if COOKIE_FILE_PATH.exists():
+        ydl_opts['cookiefile'] = str(COOKIE_FILE_PATH)
+        print(f" (使用 Cookie: {COOKIE_FILE_PATH.name})", end="", flush=True)
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -42,7 +46,7 @@ def download_video(platform: str, origin_id: str, output_dir: Path, custom_title
                 
                 # 如果预测的文件就在，直接返回
                 if final_path.exists():
-                    print(" [成功]")
+                    print("    [成功]")
                     return str(final_path)
                 
                 # 如果不在，尝试常见的容器格式 (轮询检查)
@@ -50,7 +54,7 @@ def download_video(platform: str, origin_id: str, output_dir: Path, custom_title
                 for ext in possible_exts:
                     check_path = final_path.with_suffix(ext)
                     if check_path.exists():
-                        print(" [成功]")
+                        print("    [成功]")
                         return str(check_path)
                 
                 # 如果所有格式都找不到，说明下载或合并出了问题
