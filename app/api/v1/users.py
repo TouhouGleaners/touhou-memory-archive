@@ -1,19 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from shared.models.user import User
-from ...database import get_db, get_user_by_mid
+from ...database import get_db
+from ...crud import crud_user
 
 
 router = APIRouter()
+
 @router.get("/{mid}", response_model=User, summary="获取单个 UP 主信息")
 def read_user(
     mid: int = Path(..., gt=0, description="用户 mid"),
     db = Depends(get_db)
 ):
     """通过用户 mid 获取单个 UP 主信息"""
-    user = get_user_by_mid(db, mid=mid)
+    user_data = crud_user.get_user_by_mid(db, mid)
 
-    if user is None:
+    if user_data is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    return dict(user)
+    return user_data
