@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
 
 jobs:
   build-and-deploy:
@@ -17,15 +20,19 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        working-directory: ./frontend
         run: npm ci
 
       - name: Build Vue App
+        working-directory: ./frontend
         run: npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.MIKUOSO_GITHUB_TOKEN }}
-          publish_dir: ./docs
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./frontend/dist
