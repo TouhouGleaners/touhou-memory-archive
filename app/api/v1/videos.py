@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -5,6 +6,8 @@ from shared.models.video import Video
 from ...database import get_db
 from ...crud import crud_video
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -14,7 +17,7 @@ def read_videos(db: sqlite3.Connection = Depends(get_db)):
     try:
         return crud_video.get_videos(db, is_touhou=False)
     except Exception as e:
-        print(f"Error fetching videos: {e}")
+        logger.error(f"Error fetching videos: {e}")
         raise HTTPException(status_code=500, detail="Error fetching videos")
 
 @router.get("/touhou", response_model=list[Video])
@@ -23,5 +26,5 @@ def read_touhou_videos(db: sqlite3.Connection = Depends(get_db)):
     try:
         return crud_video.get_videos(db, is_touhou=True)
     except Exception as e:
-        print(f"Error fetching touhou videos: {e}")
+        logger.error(f"Error fetching touhou videos: {e}")
         raise HTTPException(status_code=500, detail="Error fetching touhou videos")
