@@ -1,0 +1,21 @@
+{
+  "name": "touhou-memory-archive",
+  "version": "1.0.0",
+  "description": "Touhou Memory Archive - Vue.js version",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --outDir docs",
+    "preview": "vite preview",
+    "serve": "vite preview",
+    "deploy": "npm run build && git add docs && git commit -m 更新部署 && git push"
+  },
+  "dependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "type": "module"
+}
