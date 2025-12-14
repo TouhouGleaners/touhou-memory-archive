@@ -55,11 +55,18 @@ export default {
       searchTerm: '',
       statusFilter: 'all',
       uploaderFilter: 'all',
-      // 预留
     })
 
     // 过滤逻辑
     const { filteredVideos } = useFiltering(allVideos, currentFilterState)
+
+    // 日期格式化
+    const formatUpdateTime = (dateObj) => {
+      return dateObj.toLocaleString('zh-CN', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      })
+    }
 
     // 处理搜索
     const handleSearch = (searchTerm) => {
@@ -75,24 +82,22 @@ export default {
     const handleUploaderFilter = (uploaderFilter) => {
       currentFilterState.uploaderFilter = uploaderFilter
     }
-    // 预留
 
-    // 加载视频数据 (API / 静态双模式)
+    // 加载视频数据
     const loadVideoData = async () => {
       try {
         loading.value = true
         error.value = ''
+        // 每次加载前重置时间，防止显示上一次的过期时间
+        dataUpdateTime.value = '更新中...'
 
         // 读取环境变量
         const useApi = import.meta.env.VITE_USE_API === 'true'
         const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
-        // 公共的日期格式化函数
-        const formatUpdateTime = (dateObj) => {
-          return dateObj.toLocaleString('zh-CN', {
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', hour12: false
-          })
+        // 校验配置
+        if (useApi && !apiBase) {
+          throw new Error('配置错误: VITE_USE_API 为 true，但未设置 VITE_API_BASE_URL')
         }
 
         let data = []
@@ -124,6 +129,9 @@ export default {
           const lastModified = response.headers.get('Last-Modified')
           if (lastModified) {
             dataUpdateTime.value = formatUpdateTime(new Date(lastModified))
+          } else {
+            // 如果没有 Last-Modified，返回默认值
+            dataUpdateTime.value = '未知时间 (本地文件)'
           }
         }
         
@@ -142,6 +150,7 @@ export default {
       } catch (err) {
         console.error('加载视频失败:', err)
         error.value = err.message
+        dataUpdateTime.value = '更新失败' // 出错时状态
       } finally {
         loading.value = false
       }
@@ -163,7 +172,6 @@ export default {
       handleStatusFilter,
       loadVideoData,
       handleUploaderFilter,
-      // 预留
     }
   }
 }
