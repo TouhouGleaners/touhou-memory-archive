@@ -34,42 +34,11 @@ import AppFooter from './components/AppFooter.vue'
 import ScrollButtons from './components/ScrollButtons.vue'
 import { useFiltering } from './composables/useFiltering.js'
 
-// 辅助函数
-
-/**
- * 健壮的环境变量布尔值解析
- * 支持: 'true', 'TRUE', '1', true
- */
-const parseEnvBoolean = (value) => {
-  if (typeof value === 'boolean') return value
-  if (!value) return false
-  return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase())
-}
-
-/**
- * 计算 UP 主列表
- */
-const computeUploaderList = (videos) => {
-  if (!Array.isArray(videos)) return []
-  const names = videos
-    .map(v => v.uploader_name)
-    .filter(name => name) // 过滤空值
-  
-  // 去重并按中文排序
-  const uniqueNames = [...new Set(names)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  return ['所有UP主', ...uniqueNames]
-}
-
-/**
- * 统一日期格式化
- */
-const formatUpdateTime = (dateObj) => {
-  if (!dateObj || isNaN(dateObj.getTime())) return '未知时间'
-  return dateObj.toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false
-  })
-}
+import { 
+  parseEnvBoolean, 
+  computeUploaderList, 
+  formatDateTime 
+} from './utils/index.js' 
 
 export default {
   name: 'App',
@@ -137,13 +106,13 @@ export default {
           result = await fetchFromStatic()
         }
 
-        // 3. 更新数据状态
+        // 更新数据状态
         allVideos.value = result.data
         uploaderList.value = computeUploaderList(result.data)
 
-        // 4. 更新时间状态
-        dataUpdateTime.value = result.time 
-          ? formatUpdateTime(result.time) 
+        // 更新时间状态
+        dataUpdateTime.value = result.time
+          ? formatDateTime(result.time)
           : '未知时间 (本地文件)'
 
       } catch (err) {

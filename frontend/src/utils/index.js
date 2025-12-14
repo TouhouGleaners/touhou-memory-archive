@@ -8,8 +8,9 @@ export const statusMap = {
   5: "自动+人工检测为东方"
 };
 
-// 格式化日期
+// 格式化日期 (YYYY/MM/DD)
 export const formatDate = (timestamp, locale = "zh-CN") => {
+  if (!timestamp) return '未知日期'
   const date = new Date(timestamp * 1000)
   return date.toLocaleDateString(locale, {
     year: 'numeric',
@@ -18,11 +19,11 @@ export const formatDate = (timestamp, locale = "zh-CN") => {
   });
 };
 
-// 格式化时间
+// 格式化时长 (HH:MM:SS)
 export const formatTime = (totalSeconds) => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  const seconds = Math.floor(totalSeconds % 60); // 确保是整数
 
   const parts = [];
   if (hours > 0) {
@@ -49,3 +50,41 @@ export const getVideoUrl = (aid, bvid) => {
   }
   return '#'; // 如果都没有，返回占位符
 };
+
+/**
+ * 健壮的环境变量布尔值解析
+ */
+export const parseEnvBoolean = (value) => {
+  if (typeof value === 'boolean') return value
+  if (!value) return false
+  
+  const normalized = String(value).toLowerCase().trim()
+  const truthy = ['true', '1', 'yes', 'on']
+  return truthy.includes(normalized)
+}
+
+/**
+ * 计算去重后的 UP 主列表
+ */
+export const computeUploaderList = (videos) => {
+  if (!Array.isArray(videos)) return []
+  
+  const names = videos
+    .map(v => v.uploader_name)
+    .filter(name => name)
+  
+  return ['所有UP主', ...[...new Set(names)].sort((a, b) => a.localeCompare(b, 'zh-CN'))]
+}
+
+/**
+ * 格式化详细时间 (YYYY/MM/DD HH:mm)
+ * 用于页面底部的“数据更新于...”
+ */
+export const formatDateTime = (dateObj) => {
+  if (!dateObj || isNaN(dateObj.getTime())) return '未知时间'
+  
+  return dateObj.toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  })
+}

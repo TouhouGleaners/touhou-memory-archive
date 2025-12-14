@@ -76,7 +76,7 @@
 
 <script>
 import { computed, ref } from 'vue'
-import { formatDate, formatTime, getStatusText, getVideoUrl } from '../utils/formatters.js'
+import { formatDate, formatTime, getStatusText, getVideoUrl } from '../utils'
 import VideoTooltip from './VideoTooltip.vue'
 
 export default {
