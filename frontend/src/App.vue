@@ -34,132 +34,133 @@ import AppFooter from './components/AppFooter.vue'
 import ScrollButtons from './components/ScrollButtons.vue'
 import { useFiltering } from './composables/useFiltering.js'
 
+// 辅助函数
+
+/**
+ * 健壮的环境变量布尔值解析
+ * 支持: 'true', 'TRUE', '1', true
+ */
+const parseEnvBoolean = (value) => {
+  if (typeof value === 'boolean') return value
+  if (!value) return false
+  return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase())
+}
+
+/**
+ * 计算 UP 主列表
+ */
+const computeUploaderList = (videos) => {
+  if (!Array.isArray(videos)) return []
+  const names = videos
+    .map(v => v.uploader_name)
+    .filter(name => name) // 过滤空值
+  
+  // 去重并按中文排序
+  const uniqueNames = [...new Set(names)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  return ['所有UP主', ...uniqueNames]
+}
+
+/**
+ * 统一日期格式化
+ */
+const formatUpdateTime = (dateObj) => {
+  if (!dateObj || isNaN(dateObj.getTime())) return '未知时间'
+  return dateObj.toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  })
+}
+
 export default {
   name: 'App',
-  components: {
-    AppHeader,
-    VideoTable,
-    AppFooter,
-    ScrollButtons
-  },
+  components: { AppHeader, VideoTable, AppFooter, ScrollButtons },
   setup() {
-    // 原始数据
+    // --- 状态定义 ---
     const allVideos = ref([])
     const uploaderList = ref([])
     const loading = ref(true)
     const error = ref('')
     const dataUpdateTime = ref('')
     
-    // 筛选状态中心
+    // 筛选状态
     const currentFilterState = reactive({
       searchTerm: '',
       statusFilter: 'all',
       uploaderFilter: 'all',
     })
 
-    // 过滤逻辑
     const { filteredVideos } = useFiltering(allVideos, currentFilterState)
 
-    // 日期格式化
-    const formatUpdateTime = (dateObj) => {
-      return dateObj.toLocaleString('zh-CN', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', hour12: false
-      })
+    // --- 具体的获取策略 ---
+
+    // 策略 A: 从 API 获取
+    const fetchFromApi = async (apiBase) => {
+      console.log(`[Dev] 正在从本地后端获取数据: ${apiBase}/videos`)
+      const response = await fetch(`${apiBase}/videos`)
+      if (!response.ok) throw new Error(`API 请求失败: ${response.status}`)
+      
+      const data = await response.json()
+      // API 模式直接返回当前时间
+      return { data, time: new Date() }
     }
 
-    // 处理搜索
-    const handleSearch = (searchTerm) => {
-      currentFilterState.searchTerm = searchTerm
+    // 策略 B: 从静态文件获取
+    const fetchFromStatic = async () => {
+      console.log('[Prod] 正在读取静态 videos.json...')
+      const response = await fetch('videos.json')
+      if (!response.ok) throw new Error(`无法加载静态文件: ${response.status}`)
+      
+      const data = await response.json()
+      // 尝试读取 Last-Modified，读不到则返回 null
+      const lastModified = response.headers.get('Last-Modified')
+      const time = lastModified ? new Date(lastModified) : null
+      return { data, time }
     }
 
-    // 处理状态筛选
-    const handleStatusFilter = (statusFilter) => {
-      currentFilterState.statusFilter = statusFilter
-    }
-
-    // 处理UP主筛选
-    const handleUploaderFilter = (uploaderFilter) => {
-      currentFilterState.uploaderFilter = uploaderFilter
-    }
-
-    // 加载视频数据
+    // --- 主加载函数 ---
     const loadVideoData = async () => {
       try {
         loading.value = true
         error.value = ''
-        // 每次加载前重置时间，防止显示上一次的过期时间
         dataUpdateTime.value = '更新中...'
 
-        // 读取环境变量
-        const useApi = import.meta.env.VITE_USE_API === 'true'
+        // 解析配置
+        const useApi = parseEnvBoolean(import.meta.env.VITE_USE_API)
         const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
-        // 校验配置
-        if (useApi && !apiBase) {
-          throw new Error('配置错误: VITE_USE_API 为 true，但未设置 VITE_API_BASE_URL')
-        }
-
-        let data = []
-
+        // 选择并执行策略
+        let result
         if (useApi) {
-          // === 模式 A: API ===
-          console.log(`[Dev] 正在从本地后端获取数据: ${apiBase}/videos`)
-          
-          const response = await fetch(`${apiBase}/videos`)
-          if (!response.ok) {
-            throw new Error(`API 请求失败: ${response.status} ${response.statusText}`)
-          }
-          data = await response.json()
-          
-          // API 模式：使用当前时间
-          dataUpdateTime.value = formatUpdateTime(new Date())
-
+          if (!apiBase) throw new Error('配置错误: 启用 API 模式但缺少 Base URL')
+          result = await fetchFromApi(apiBase)
         } else {
-          // === 模式 B: 静态 JSON ===
-          console.log('[Prod] 正在读取静态 videos.json...')
-          
-          const response = await fetch('videos.json')
-          if (!response.ok) {
-            throw new Error(`无法加载静态文件! 状态: ${response.status}`)
-          }
-          data = await response.json()
-
-          // 静态模式：读取 Last-Modified
-          const lastModified = response.headers.get('Last-Modified')
-          if (lastModified) {
-            dataUpdateTime.value = formatUpdateTime(new Date(lastModified))
-          } else {
-            // 如果没有 Last-Modified，返回默认值
-            dataUpdateTime.value = '未知时间 (本地文件)'
-          }
+          result = await fetchFromStatic()
         }
-        
-        allVideos.value = data
 
-        // 计算UP主列表
-        if (Array.isArray(allVideos.value)) {
-          const allUploaders = allVideos.value
-            .map(v => v.uploader_name)
-            .filter(name => name)
-          
-          const uniqueUploaders = [...new Set(allUploaders)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
-          uploaderList.value = ['所有UP主', ...uniqueUploaders]
-        }
+        // 3. 更新数据状态
+        allVideos.value = result.data
+        uploaderList.value = computeUploaderList(result.data)
+
+        // 4. 更新时间状态
+        dataUpdateTime.value = result.time 
+          ? formatUpdateTime(result.time) 
+          : '未知时间 (本地文件)'
 
       } catch (err) {
-        console.error('加载视频失败:', err)
-        error.value = err.message
-        dataUpdateTime.value = '更新失败' // 出错时状态
+        console.error('加载失败:', err)
+        error.value = err.message || '未知错误'
+        dataUpdateTime.value = '更新失败'
       } finally {
         loading.value = false
       }
     }
 
-    // 组件挂载时加载数据
-    onMounted(() => {
-      loadVideoData()
-    })
+    // 事件处理
+    const handleSearch = (term) => currentFilterState.searchTerm = term
+    const handleStatusFilter = (status) => currentFilterState.statusFilter = status
+    const handleUploaderFilter = (uploader) => currentFilterState.uploaderFilter = uploader
+
+    onMounted(loadVideoData)
 
     return {
       filteredVideos,
@@ -170,8 +171,8 @@ export default {
       uploaderList,
       handleSearch,
       handleStatusFilter,
-      loadVideoData,
       handleUploaderFilter,
+      loadVideoData,
     }
   }
 }
