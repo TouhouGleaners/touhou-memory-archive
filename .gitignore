@@ -196,3 +196,6 @@ cython_debug/
 *.db
 *.exe
 cookies.txt
+
+
+frontend/node_modules/
