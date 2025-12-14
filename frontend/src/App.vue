@@ -34,95 +34,102 @@ import AppFooter from './components/AppFooter.vue'
 import ScrollButtons from './components/ScrollButtons.vue'
 import { useFiltering } from './composables/useFiltering.js'
 
+import { 
+  parseEnvBoolean, 
+  computeUploaderList, 
+  formatDateTime 
+} from './utils/index.js' 
+
 export default {
   name: 'App',
-  components: {
-    AppHeader,
-    VideoTable,
-    AppFooter,
-    ScrollButtons
-  },
+  components: { AppHeader, VideoTable, AppFooter, ScrollButtons },
   setup() {
-    // 原始数据
+    // --- 状态定义 ---
     const allVideos = ref([])
     const uploaderList = ref([])
     const loading = ref(true)
     const error = ref('')
     const dataUpdateTime = ref('')
     
-    // 筛选状态中心
+    // 筛选状态
     const currentFilterState = reactive({
       searchTerm: '',
       statusFilter: 'all',
       uploaderFilter: 'all',
-      // 预留
     })
 
-    // 过滤逻辑
     const { filteredVideos } = useFiltering(allVideos, currentFilterState)
 
-    // 处理搜索
-    const handleSearch = (searchTerm) => {
-      currentFilterState.searchTerm = searchTerm
+    // --- 具体的获取策略 ---
+
+    // 策略 A: 从 API 获取
+    const fetchFromApi = async (apiBase) => {
+      console.log(`[Dev] 正在从本地后端获取数据: ${apiBase}/videos`)
+      const response = await fetch(`${apiBase}/videos`)
+      if (!response.ok) throw new Error(`API 请求失败: ${response.status}`)
+      
+      const data = await response.json()
+      // API 模式直接返回当前时间
+      return { data, time: new Date() }
     }
 
-    // 处理状态筛选
-    const handleStatusFilter = (statusFilter) => {
-      currentFilterState.statusFilter = statusFilter
+    // 策略 B: 从静态文件获取
+    const fetchFromStatic = async () => {
+      console.log('[Prod] 正在读取静态 videos.json...')
+      const response = await fetch('videos.json')
+      if (!response.ok) throw new Error(`无法加载静态文件: ${response.status}`)
+      
+      const data = await response.json()
+      // 尝试读取 Last-Modified，读不到则返回 null
+      const lastModified = response.headers.get('Last-Modified')
+      const time = lastModified ? new Date(lastModified) : null
+      return { data, time }
     }
 
-    // 处理UP主筛选
-    const handleUploaderFilter = (uploaderFilter) => {
-      currentFilterState.uploaderFilter = uploaderFilter
-    }
-    // 预留
-
-    // 加载视频数据，并获取 Last-Modified 作为更新时间
+    // --- 主加载函数 ---
     const loadVideoData = async () => {
       try {
         loading.value = true
         error.value = ''
-        
-        const response = await fetch('videos.json')
-        
-        if (!response.ok) {
-          throw new Error(`HTTP错误! 状态: ${response.status}`)
-        }
-        
-        allVideos.value = await response.json()
+        dataUpdateTime.value = '更新中...'
 
-        // 计算UP主列表
-        const allUploaders = allVideos.value
-          .map(v => v.uploader_name)
-          .filter(name => name)  // 过滤掉所有无效的名字
-        const uniqueUploaders = [...new Set(allUploaders)].sort((a, b) => a.localeCompare(b, 'zh-CN'))  //中文排序
-        uploaderList.value = ['所有UP主', ...uniqueUploaders]
+        // 解析配置
+        const useApi = parseEnvBoolean(import.meta.env.VITE_USE_API)
+        const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
-        // 获取 Last-Modified 头
-        const lastModified = response.headers.get('Last-Modified')
-        if (lastModified) {
-          const date = new Date(lastModified)
-          dataUpdateTime.value = date.toLocaleString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          })
+        // 选择并执行策略
+        let result
+        if (useApi) {
+          if (!apiBase) throw new Error('配置错误: 启用 API 模式但缺少 Base URL')
+          result = await fetchFromApi(apiBase)
+        } else {
+          result = await fetchFromStatic()
         }
+
+        // 更新数据状态
+        allVideos.value = result.data
+        uploaderList.value = computeUploaderList(result.data)
+
+        // 更新时间状态
+        dataUpdateTime.value = result.time
+          ? formatDateTime(result.time)
+          : '未知时间 (本地文件)'
+
       } catch (err) {
-        console.error('加载视频失败:', err)
-        error.value = err.message
+        console.error('加载失败:', err)
+        error.value = err.message || '未知错误'
+        dataUpdateTime.value = '更新失败'
       } finally {
         loading.value = false
       }
     }
 
-    // 组件挂载时加载数据
-    onMounted(() => {
-      loadVideoData()
-    })
+    // 事件处理
+    const handleSearch = (term) => currentFilterState.searchTerm = term
+    const handleStatusFilter = (status) => currentFilterState.statusFilter = status
+    const handleUploaderFilter = (uploader) => currentFilterState.uploaderFilter = uploader
+
+    onMounted(loadVideoData)
 
     return {
       filteredVideos,
@@ -133,9 +140,8 @@ export default {
       uploaderList,
       handleSearch,
       handleStatusFilter,
-      loadVideoData,
       handleUploaderFilter,
-      // 预留
+      loadVideoData,
     }
   }
 }
