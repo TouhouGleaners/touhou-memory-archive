@@ -23,7 +23,8 @@ def get_videos(db: sqlite3.Connection, is_touhou: bool = False) -> list[Video]:
     
     if aids:
         placeholders = ','.join('?' for _ in aids)  # 生成 SQL 占位符 (例如: ?,?,?)
-        parts_cursor = db.execute(f"SELECT * FROM video_parts WHERE aid IN ({placeholders})", aids)
+        query = f"SELECT * FROM video_parts WHERE aid IN ({placeholders})"
+        parts_cursor = db.execute(query, aids)
         all_parts = [dict(row) for row in parts_cursor.fetchall()]
 
         # 创建分P字典映射: { aid: [part1, part2...] }
