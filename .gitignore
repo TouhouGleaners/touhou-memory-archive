@@ -198,4 +198,4 @@ cython_debug/
 cookies.txt
 
 
-/node_modules/
+frontend/node_modules/
