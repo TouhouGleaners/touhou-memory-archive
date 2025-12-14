@@ -87,10 +87,18 @@ export default {
         const useApi = import.meta.env.VITE_USE_API === 'true'
         const apiBase = import.meta.env.VITE_API_BASE_URL || ''
 
+        // 公共的日期格式化函数
+        const formatUpdateTime = (dateObj) => {
+          return dateObj.toLocaleString('zh-CN', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false
+          })
+        }
+
         let data = []
 
         if (useApi) {
-          // === 模式 A: 开发环境 (API) ===
+          // === 模式 A: API ===
           console.log(`[Dev] 正在从本地后端获取数据: ${apiBase}/videos`)
           
           const response = await fetch(`${apiBase}/videos`)
@@ -99,14 +107,11 @@ export default {
           }
           data = await response.json()
           
-          // API 模式下，直接显示当前时间为更新时间
-          dataUpdateTime.value = new Date().toLocaleString('zh-CN', {
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', hour12: false
-          })
+          // API 模式：使用当前时间
+          dataUpdateTime.value = formatUpdateTime(new Date())
 
         } else {
-          // === 模式 B: 生产环境 (静态 JSON) ===
+          // === 模式 B: 静态 JSON ===
           console.log('[Prod] 正在读取静态 videos.json...')
           
           const response = await fetch('videos.json')
@@ -115,25 +120,24 @@ export default {
           }
           data = await response.json()
 
-          // 静态模式下，尝试读取 Last-Modified 头
+          // 静态模式：读取 Last-Modified
           const lastModified = response.headers.get('Last-Modified')
           if (lastModified) {
-            const date = new Date(lastModified)
-            dataUpdateTime.value = date.toLocaleString('zh-CN', {
-              year: 'numeric', month: '2-digit', day: '2-digit',
-              hour: '2-digit', minute: '2-digit', hour12: false
-            })
+            dataUpdateTime.value = formatUpdateTime(new Date(lastModified))
           }
         }
         
         allVideos.value = data
 
         // 计算UP主列表
-        const allUploaders = allVideos.value
-          .map(v => v.uploader_name)
-          .filter(name => name)
-        const uniqueUploaders = [...new Set(allUploaders)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
-        uploaderList.value = ['所有UP主', ...uniqueUploaders]
+        if (Array.isArray(allVideos.value)) {
+          const allUploaders = allVideos.value
+            .map(v => v.uploader_name)
+            .filter(name => name)
+          
+          const uniqueUploaders = [...new Set(allUploaders)].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+          uploaderList.value = ['所有UP主', ...uniqueUploaders]
+        }
 
       } catch (err) {
         console.error('加载视频失败:', err)
