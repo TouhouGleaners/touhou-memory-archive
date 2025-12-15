@@ -4,12 +4,11 @@ import pytz
 from datetime import datetime
 from pathlib import Path
 
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(PROJECT_ROOT))
-
 from app.database import get_db
 from app.crud.crud_video import get_videos
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 def export_data():
     print(">>> 正在初始化导出任务...")
