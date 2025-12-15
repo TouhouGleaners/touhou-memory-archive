@@ -17,6 +17,7 @@ class Video(BaseModel):
     aid: int
     bvid: str
     mid: int
+    uploader_name: str | None = None
     title: str
     description: str | None = Field(default=None)
     pic: str

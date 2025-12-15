@@ -3,14 +3,24 @@ from shared.models.video import Video, VideoPart
 
 
 def get_videos(db: sqlite3.Connection, is_touhou: bool = False) -> list[Video]:
-    """获取视频列表（解决了 N+1 查询问题）"""
+    """获取视频列表"""
+    sql = """
+    SELECT 
+        v.aid, v.bvid, v.mid, v.title, v.description, 
+        v.pic, v.created, v.tags, v.touhou_status, v.season_id,
+        u.name as uploader_name 
+    FROM videos v
+    LEFT JOIN users u ON v.mid = u.mid
+    """
     # 查询视频主表
     if is_touhou:
         # 只查东方视频 (状态 1=自动检测, 3=人工确认)
-        cursor = db.execute("SELECT * FROM videos WHERE touhou_status IN (1, 3) ORDER BY created DESC")
+        query = f"{sql} WHERE v.touhou_status IN (1, 3) ORDER BY v.created DESC"
     else:
         # 查所有视频
-        cursor = db.execute("SELECT * FROM videos ORDER BY created DESC")
+        query = f"{sql} ORDER BY v.created DESC"
+
+    cursor = db.execute(query)
     
     video_rows = cursor.fetchall()
     if not video_rows:
