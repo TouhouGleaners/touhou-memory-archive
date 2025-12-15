@@ -5,9 +5,12 @@ from shared.models.video import Video, VideoPart
 def get_videos(db: sqlite3.Connection, is_touhou: bool = False) -> list[Video]:
     """获取视频列表"""
     sql = """
-        SELECT v.*, u.name as uploader_name 
-        FROM videos v
-        LEFT JOIN users u ON v.mid = u.mid
+    SELECT 
+        v.aid, v.bvid, v.mid, v.title, v.description, 
+        v.pic, v.created, v.tags, v.touhou_status, v.season_id,
+        u.name as uploader_name 
+    FROM videos v
+    LEFT JOIN users u ON v.mid = u.mid
     """
     # 查询视频主表
     if is_touhou:
