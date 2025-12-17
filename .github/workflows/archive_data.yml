@@ -4,13 +4,12 @@ on:
   push:
     branches:
       - main
-    # 🎯 只有当数据文件发生变化时，才运行这个归档任务
-    # 这样你改代码的时候，就不会产生无意义的归档
+
     paths:
       - 'frontend/public/videos.json'
 
 permissions:
-  contents: write # 必须有写权限才能推送到分支
+  contents: write
 
 jobs:
   archive-data:
@@ -19,8 +18,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      # 这里不需要安装 Node.js，也不需要构建 Vue，因为我们只搬运 JSON 文件
 
       - name: Prepare Archive Data
         run: |
