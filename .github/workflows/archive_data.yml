@@ -23,34 +23,22 @@ jobs:
         env:
           TZ: Asia/Shanghai
         run: |
-          # 检查文件是否存在
-          if [ -f "frontend/public/videos.json" ]; then
-            FILE_EXISTS=true
-            
-            # 计算日期和路径（现在是北京时间）
-            TODAY_FULL_DATE=$(date +'%Y-%m-%d')
-            YEAR_MONTH=$(date +'%Y-%m')
-            FILENAME="videos_$(date +'%Y%m%d').json"
-            
-            # 临时文件夹路径
-            ARCHIVE_PATH="temp_archives/archives/$YEAR_MONTH/$FILENAME"
-            
-            # 构造提交信息
-            COMMIT_MSG="Data update: $TODAY_FULL_DATE [skip ci]"
-          else
-            # 简化逻辑，文件不存在时直接将变量设为空或false
-            FILE_EXISTS=false
-            ARCHIVE_PATH=""
-            COMMIT_MSG=""
-          fi
+          # 计算日期和路径
+          TODAY_FULL_DATE=$(date +'%Y-%m-%d')
+          YEAR_MONTH=$(date +'%Y-%m')
+          FILENAME="videos_$(date +'%Y%m%d').json"
+          
+          # 临时文件夹路径
+          ARCHIVE_PATH="temp_archives/archives/$YEAR_MONTH/$FILENAME"
+          
+          # 构造提交信息
+          COMMIT_MSG="Data update: $TODAY_FULL_DATE [skip ci]"
           
           # 将 Shell 变量保存到 Action 的 output 中
-          echo "file_exists=$FILE_EXISTS" >> $GITHUB_OUTPUT
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
           echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
       - name: Prepare Archive Data
-        if: steps.calculate_vars.outputs.file_exists == 'true'
         run: |
           # 引用上一步的 output
           TARGET_FULL_PATH="${{ steps.calculate_vars.outputs.archive_path }}"
@@ -65,7 +53,6 @@ jobs:
           ls -R temp_archives
 
       - name: Deploy to Data Archive Branch
-        if: steps.calculate_vars.outputs.file_exists == 'true'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
