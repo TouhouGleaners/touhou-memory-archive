@@ -20,12 +20,14 @@ jobs:
 
       - name: Calculate Dynamic Variables
         id: calculate_vars
+        env:
+          TZ: Asia/Shanghai
         run: |
           # 检查文件是否存在
           if [ -f "frontend/public/videos.json" ]; then
             FILE_EXISTS=true
             
-            # 计算日期和路径
+            # 计算日期和路径（现在是北京时间）
             TODAY_FULL_DATE=$(date +'%Y-%m-%d')
             YEAR_MONTH=$(date +'%Y-%m')
             FILENAME="videos_$(date +'%Y%m%d').json"
@@ -36,6 +38,7 @@ jobs:
             # 构造提交信息
             COMMIT_MSG="Data update: $TODAY_FULL_DATE [skip ci]"
           else
+            # 简化逻辑，文件不存在时直接将变量设为空或false
             FILE_EXISTS=false
             ARCHIVE_PATH=""
             COMMIT_MSG=""
