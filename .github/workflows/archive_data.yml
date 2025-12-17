@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Calculate Dynamic Variables
         id: calculate_vars
@@ -30,15 +30,15 @@ jobs:
             YEAR_MONTH=$(date +'%Y-%m')
             FILENAME="videos_$(date +'%Y%m%d').json"
             
-            # 临时文件夹用于部署
+            # 临时文件夹路径
             ARCHIVE_PATH="temp_archives/archives/$YEAR_MONTH/$FILENAME"
             
             # 构造提交信息
             COMMIT_MSG="Data update: $TODAY_FULL_DATE [skip ci]"
           else
             FILE_EXISTS=false
-            COMMIT_MSG="Skipping archive (no new data)"
             ARCHIVE_PATH=""
+            COMMIT_MSG=""
           fi
           
           # 将 Shell 变量保存到 Action 的 output 中
@@ -49,12 +49,14 @@ jobs:
       - name: Prepare Archive Data
         if: steps.calculate_vars.outputs.file_exists == 'true'
         run: |
+          # 引用上一步的 output
+          TARGET_FULL_PATH="${{ steps.calculate_vars.outputs.archive_path }}"
+          
           # 创建目录结构
-          TARGET_FULL_PATH=${{ steps.calculate_vars.outputs.archive_path }}
-          mkdir -p $(dirname $TARGET_FULL_PATH)
+          mkdir -p "$(dirname "$TARGET_FULL_PATH")"
           
           # 复制文件
-          cp frontend/public/videos.json $TARGET_FULL_PATH
+          cp "frontend/public/videos.json" "$TARGET_FULL_PATH"
           
           echo "✅ Backup prepared at: $TARGET_FULL_PATH"
           ls -R temp_archives
