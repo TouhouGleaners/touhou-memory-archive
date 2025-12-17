@@ -1,0 +1,54 @@
+name: Archive Data History
+
+on:
+  push:
+    branches:
+      - main
+    # 🎯 只有当数据文件发生变化时，才运行这个归档任务
+    # 这样你改代码的时候，就不会产生无意义的归档
+    paths:
+      - 'frontend/public/videos.json'
+
+permissions:
+  contents: write # 必须有写权限才能推送到分支
+
+jobs:
+  archive-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 这里不需要安装 Node.js，也不需要构建 Vue，因为我们只搬运 JSON 文件
+
+      - name: Prepare Archive Data
+        run: |
+          # 创建临时目录
+          mkdir -p temp_archives
+          
+          # 获取时间变量
+          # YEAR_MONTH: 2025-12
+          # FILENAME: videos_20251217.json
+          YEAR_MONTH=$(date +'%Y-%m')
+          FILENAME="videos_$(date +'%Y%m%d').json"
+          
+          # 建立目标目录结构 archives/YYYY-MM/
+          TARGET_DIR="archives/$YEAR_MONTH"
+          mkdir -p temp_archives/$TARGET_DIR
+          
+          # 复制 public 下的最新数据
+          cp frontend/public/videos.json temp_archives/$TARGET_DIR/$FILENAME
+          
+          echo "✅ Prepared backup: $TARGET_DIR/$FILENAME"
+          ls -R temp_archives
+
+      - name: Deploy to Data Archive Branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: data-archive
+          folder: temp_archives
+          target-folder: .
+          clean: false
+          commit-message: "Data update: $(date +'%Y-%m-%d') [skip ci]"
