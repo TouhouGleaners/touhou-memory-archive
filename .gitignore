@@ -199,3 +199,6 @@ cookies.txt
 
 
 frontend/node_modules/
+
+data/archives/
+data/downloads/
