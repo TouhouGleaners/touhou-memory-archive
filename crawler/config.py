@@ -1,12 +1,9 @@
 import os
 from random import uniform
 from pathlib import Path
-from dotenv import load_dotenv
 
 
-load_dotenv()
-DB_PATH = Path(__file__).parent.parent / "bili_videos.db"
-INIT_SQL_PATH: str = Path(__file__).parent / "init.sql" 
+INIT_SQL_PATH: Path = Path(__file__).parent / "init.sql" 
 
 
 # --- 全局行为控制 ---

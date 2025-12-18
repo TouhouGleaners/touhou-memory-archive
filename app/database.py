@@ -1,7 +1,7 @@
 import sqlite3
 from typing import Generator
 
-from crawler.config import DB_PATH
+from backend.core.config import DB_PATH 
 
 
 def get_db() -> Generator[sqlite3.Connection, None, None]:

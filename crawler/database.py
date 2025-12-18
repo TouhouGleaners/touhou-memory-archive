@@ -1,7 +1,8 @@
 import sqlite3
 from contextlib import contextmanager
 
-from .config import DB_PATH, INIT_SQL_PATH
+from backend.core.config import DB_PATH
+from .config import INIT_SQL_PATH
 from shared.models.video import Video
 
 
