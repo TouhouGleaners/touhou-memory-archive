@@ -1,63 +1,55 @@
-name: Archive Data History
+name: Auto Archive History
 
 on:
   push:
     branches:
-      - main
+      - data-archive
     paths:
-      - 'frontend/public/videos.json'
+      - 'videos.json'
 
 permissions:
   contents: write
 
 jobs:
-  archive-data:
+  archive:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
+      # 拉取 data-archive 的数据
+      - name: Checkout data
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
-      - name: Calculate Dynamic Variables
-        id: calculate_vars
+      # 在 data-archive 分支上创建归档文件
+      - name: Create Snapshot
+        id: create_snapshot
         env:
           TZ: Asia/Shanghai
         run: |
-          # 计算日期和路径
-          TODAY_FULL_DATE=$(date +'%Y-%m-%d')
           YEAR_MONTH=$(date +'%Y-%m')
           FILENAME="videos_$(date +'%Y%m%d').json"
           
-          # 临时文件夹路径
-          ARCHIVE_PATH="temp_archives/archives/$YEAR_MONTH/$FILENAME"
+          # 创建一个临时的推送目录
+          mkdir -p push_temp/archives/$YEAR_MONTH
+          
+          # 复制最新数据到归档路径
+          cp videos.json "push_temp/archives/$YEAR_MONTH/$FILENAME"
+          
+          # 复制最新数据到根目录 (覆盖 data-archive 根目录的 videos.json)
+          cp videos.json push_temp/videos.json
           
           # 构造提交信息
-          COMMIT_MSG="Data update: $TODAY_FULL_DATE [skip ci]"
-          
-          # 将 Shell 变量保存到 Action 的 output 中
-          echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
+          COMMIT_MSG="CI: Data Archive $FILENAME [skip ci]" 
           echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
-      - name: Prepare Archive Data
-        run: |
-          # 引用上一步的 output
-          TARGET_FULL_PATH="${{ steps.calculate_vars.outputs.archive_path }}"
-          
-          # 创建目录结构
-          mkdir -p "$(dirname "$TARGET_FULL_PATH")"
-          
-          # 复制文件
-          cp "frontend/public/videos.json" "$TARGET_FULL_PATH"
-          
-          echo "✅ Backup prepared at: $TARGET_FULL_PATH"
-          ls -R temp_archives
-
-      - name: Deploy to Data Archive Branch
+      # 引用输出
+      - name: Push back to data-archive
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: data-archive
-          folder: temp_archives
+          folder: push_temp
           target-folder: .
+          commit-message: ${{ steps.create_snapshot.outputs.commit_msg }}
           clean: false
-          commit-message: ${{ steps.calculate_vars.outputs.commit_msg }}

@@ -1,21 +1,50 @@
-name: Deploy Vue App to GitHub Pages
+name: Deploy Website
 
 on:
   push:
     branches:
-      - main
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy.yml'
+      - main           # 触发器：代码更新时部署网站
+      - data-archive   # 触发器：数据更新时部署网站
+    paths-ignore:
+      - 'archives/**'  # 忽略 archives 文件夹的变动
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # Checkout Code
+      - name: Checkout Code (main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      # Checkout Data 
+      - name: Fetch Latest Data from Archive Branch
+        uses: actions/checkout@v4
+        with:
+          ref: data-archive # 从数据分支下载
+          path: .data_temp  # 拉取到一个临时文件夹
+          token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Inject Data
+      - name: Inject Data
+        run: |
+          # 检查文件是否存在
+          if [ ! -f ".data_temp/videos.json" ]; then
+             echo "Error: videos.json not found in data-archive branch. Deployment failed."
+             exit 1
+          fi
+          # 将数据文件覆盖到前端 public 目录
+          mv .data_temp/videos.json frontend/public/videos.json
+          rm -rf .data_temp
+          echo "✅ Latest data injected from data-archive."
+          
+      # Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
@@ -23,14 +52,17 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
+      # Install dependencies
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
 
+      # Build Vue App
       - name: Build Vue App
         working-directory: ./frontend
         run: npm run build
 
+      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
