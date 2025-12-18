@@ -13,15 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write 
+      contents: write
 
     steps:
       # Checkout Code
       - name: Checkout Code (main)
         uses: actions/checkout@v4
         with:
-          ref: main 
-          token: ${{ secrets.GITHUB_TOKEN }} 
+          ref: ${{ github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           
       # Checkout Data 
       - name: Fetch Latest Data from Archive Branch

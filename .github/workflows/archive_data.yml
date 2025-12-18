@@ -19,7 +19,7 @@ jobs:
       - name: Checkout data
         uses: actions/checkout@v4
         with:
-          ref: data-archive
+          ref: ${{ github.sha }}
 
       # 在 data-archive 分支上创建归档文件
       - name: Create Snapshot
