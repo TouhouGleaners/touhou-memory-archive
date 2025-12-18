@@ -1,21 +1,43 @@
-name: Deploy Vue App to GitHub Pages
+name: Deploy Website
 
 on:
   push:
     branches:
-      - main
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy.yml'
+      - main           # 触发器：代码更新时部署网站
+      - data-archive   # 触发器：数据更新时部署网站
+    paths-ignore:
+      - 'archives/**'  # 忽略 archives 文件夹的变动
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # 拉取 main 代码
+      - name: Checkout Code (main)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} 
+          
+      # 将 data-archive 拉到一个临时目录
+      - name: Fetch Latest Data from Archive Branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: data-archive # 从数据分支下载
+          path: .data_temp  # 拉取到一个临时文件夹
+          token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Inject Data
+        run: |
+          # 检查文件是否存在
+          if [ ! -f ".data_temp/videos.json" ]; then
+             echo "Error: videos.json not found in data-archive branch. Deployment failed."
+             exit 1
+          fi
+          # 将数据文件覆盖到前端 public 目录
+          mv .data_temp/videos.json frontend/public/videos.json
+          echo "✅ Latest data injected from data-archive."
+          
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
