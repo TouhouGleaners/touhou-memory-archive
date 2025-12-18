@@ -2,9 +2,11 @@ import re
 import logging
 import asyncio
 
+from backend.shared.models.video import Video, VideoPart
+
 from .database import Database
 from .bili_api_client import BiliApiClient
-from shared.models.video import Video, VideoPart
+
 
 logger = logging.getLogger(__name__)
 

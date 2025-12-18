@@ -1,8 +1,10 @@
 import logging
 import sqlite3
+
 from fastapi import APIRouter, Depends, HTTPException
 
-from shared.models.video import Video
+from backend.shared.models.video import Video
+
 from ...database import get_db
 from ...crud import crud_video
 

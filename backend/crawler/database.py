@@ -1,11 +1,14 @@
 import sqlite3
+from pathlib import Path
 from contextlib import contextmanager
 
-from .config import DB_PATH, INIT_SQL_PATH
-from shared.models.video import Video
+from backend.core.config import DB_PATH
+from backend.shared.models.video import Video
+
+from .config import INIT_SQL_PATH
 
 
-def init_db(db_path: str = DB_PATH, init_sql_path: str = INIT_SQL_PATH):
+def init_db(db_path: Path = DB_PATH, init_sql_path: Path = INIT_SQL_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     with open(init_sql_path, 'r', encoding='utf-8') as f:
@@ -16,7 +19,7 @@ def init_db(db_path: str = DB_PATH, init_sql_path: str = INIT_SQL_PATH):
 
 
 class Database:
-    def __init__(self, db_path: str = DB_PATH):
+    def __init__(self, db_path: Path = DB_PATH):
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
         self.cursor = self.conn.cursor()

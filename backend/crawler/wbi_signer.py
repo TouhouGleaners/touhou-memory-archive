@@ -2,8 +2,9 @@ from functools import reduce
 from hashlib import md5
 import urllib.parse
 import time
-import aiohttp
 from typing import Optional, Tuple
+
+import aiohttp
 
 
 class WbiSigner:
