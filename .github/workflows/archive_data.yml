@@ -40,8 +40,8 @@ jobs:
           cp videos.json push_temp/videos.json
           
           # 构造提交信息
-          COMMIT_MSG="CI: Data Archive $FILENAME"
-          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT 
+          COMMIT_MSG="CI: Data Archive $FILENAME [skip ci]" 
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
       # 引用输出
       - name: Push back to data-archive
