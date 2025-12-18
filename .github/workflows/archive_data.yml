@@ -29,18 +29,27 @@ jobs:
         run: |
           YEAR_MONTH=$(date +'%Y-%m')
           FILENAME="videos_$(date +'%Y%m%d').json"
-          COMMIT_MSG="CI: Archive $FILENAME"
           
-          mkdir -p "archives/$YEAR_MONTH"
-          cp videos.json "archives/$YEAR_MONTH/$FILENAME"
+          # 创建一个临时的推送目录
+          mkdir -p push_temp/archives/$YEAR_MONTH
           
-          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          # 复制最新数据到归档路径
+          cp videos.json "push_temp/archives/$YEAR_MONTH/$FILENAME"
+          
+          # 复制最新数据到根目录 (覆盖 data-archive 根目录的 videos.json)
+          cp videos.json push_temp/videos.json
+          
+          # 构造提交信息
+          COMMIT_MSG="CI: Data Archive $FILENAME"
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT 
 
-      # 将归档提交到 data-archive
+      # 引用输出
       - name: Push back to data-archive
         uses: JamesIves/github-pages-deploy-action@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: data-archive
-          folder: .
+          folder: push_temp
+          target-folder: .
           commit-message: ${{ steps.create_snapshot.outputs.commit_msg }}
           clean: false
