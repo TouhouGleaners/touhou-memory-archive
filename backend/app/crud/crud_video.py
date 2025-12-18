@@ -1,5 +1,5 @@
 import sqlite3
-from shared.models.video import Video, VideoPart
+from ...shared.models.video import Video, VideoPart
 
 
 def get_videos(db: sqlite3.Connection, is_touhou: bool = False) -> list[Video]:

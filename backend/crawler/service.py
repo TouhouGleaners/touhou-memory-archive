@@ -4,7 +4,7 @@ import asyncio
 
 from .database import Database
 from .bili_api_client import BiliApiClient
-from shared.models.video import Video, VideoPart
+from ..shared.models.video import Video, VideoPart
 
 logger = logging.getLogger(__name__)
 
