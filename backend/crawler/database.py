@@ -1,9 +1,10 @@
 import sqlite3
 from contextlib import contextmanager
 
-from ..core.config import DB_PATH
+from backend.core.config import DB_PATH
+from backend.shared.models.video import Video
+
 from .config import INIT_SQL_PATH
-from ..shared.models.video import Video
 
 
 def init_db(db_path: str = DB_PATH, init_sql_path: str = INIT_SQL_PATH):
