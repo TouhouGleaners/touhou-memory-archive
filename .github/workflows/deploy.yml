@@ -20,7 +20,7 @@ jobs:
       - name: Checkout Code (main)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
           
       # Checkout Data 
