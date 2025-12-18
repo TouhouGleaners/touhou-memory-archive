@@ -1,0 +1,55 @@
+name: Auto Archive History
+
+on:
+  push:
+    branches:
+      - data-archive
+    paths:
+      - 'videos.json'
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 拉取 data-archive 的数据
+      - name: Checkout data
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      # 在 data-archive 分支上创建归档文件
+      - name: Create Snapshot
+        id: create_snapshot
+        env:
+          TZ: Asia/Shanghai
+        run: |
+          YEAR_MONTH=$(date +'%Y-%m')
+          FILENAME="videos_$(date +'%Y%m%d').json"
+          
+          # 创建一个临时的推送目录
+          mkdir -p push_temp/archives/$YEAR_MONTH
+          
+          # 复制最新数据到归档路径
+          cp videos.json "push_temp/archives/$YEAR_MONTH/$FILENAME"
+          
+          # 复制最新数据到根目录 (覆盖 data-archive 根目录的 videos.json)
+          cp videos.json push_temp/videos.json
+          
+          # 构造提交信息
+          COMMIT_MSG="CI: Data Archive $FILENAME [skip ci]" 
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+
+      # 引用输出
+      - name: Push back to data-archive
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: data-archive
+          folder: push_temp
+          target-folder: .
+          commit-message: ${{ steps.create_snapshot.outputs.commit_msg }}
+          clean: false
