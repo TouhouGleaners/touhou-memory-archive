@@ -58,7 +58,7 @@ class BiliClient:
                 if video.season_id and video.season_id not in processed_seasons:
                     processed_seasons.add(video.season_id)
 
-                    async for sv in self._fetch_season(mid, video.season_id):
+                    async for sv in self._fetch_season(mid, video.season_id, delay_manager):
                         yield sv
                 elif not video.season_id:
                     yield video
@@ -69,7 +69,7 @@ class BiliClient:
             page += 1
             await asyncio.sleep(PRODUCER_PAGE_DELAY_SECONDS)
 
-    async def _fetch_season(self, mid: int, season_id: int) -> AsyncGenerator[Video, None]:
+    async def _fetch_season(self, mid: int, season_id: int, delay_manager: DelayManager) -> AsyncGenerator[Video, None]:
         """内部递归：获取合集"""
         page = 1
 
@@ -96,7 +96,7 @@ class BiliClient:
                 break
 
             page += 1
-            sleep_time = DelayManager.get_instance().get_request_delay()
+            sleep_time = delay_manager.get_request_delay()
             await asyncio.sleep(sleep_time)
 
     async def get_video_info(self, bvid: str) -> dict:

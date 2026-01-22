@@ -62,6 +62,9 @@ async def main():
                     try:
                         async for video in bili_client.get_user_all_videos(user, delay_manager):
                             await video_queue.put(video)
+                    except asyncio.CancelledError:
+                        logger.info(f"用户 {user} 生产任务被取消")
+                        raise
                     except Exception as e:
                         logger.critical(f"用户 {user} 任务中断: {e}")
                 
