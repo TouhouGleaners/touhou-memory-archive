@@ -58,14 +58,15 @@ async def main():
 
                 video_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
 
-                async def producer_task():
+                async def run_producer():
                     try:
                         async for video in bili_client.get_user_all_videos(user, delay_manager):
                             await video_queue.put(video)
                     except Exception as e:
                         logger.critical(f"用户 {user} 任务中断: {e}")
-                    
-                p_task = asyncio.create_task(producer_task())
+                
+                # 创建 Task
+                p_task = asyncio.create_task(run_producer())
 
                 # 启动一组消费者任务
                 consumer_tasks = [

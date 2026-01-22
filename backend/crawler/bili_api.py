@@ -64,8 +64,8 @@ class BiliAPI:
                     if response.status == 412:
                         if is_last_attempt:
                             raise Exception(f"API请求失败: 触发风控(412)，重试次数耗尽")
-                        logger.warning(f"请求过快触发风控，等待 {retry_delay * (attempt + 1)} 秒后重试")
-                        await asyncio.sleep(retry_delay * (attempt + 1))
+                        logger.warning(f"请求过快触发风控，等待 {current_delay} 秒后重试")
+                        await asyncio.sleep(current_delay)
                         continue
 
                     response.raise_for_status()
