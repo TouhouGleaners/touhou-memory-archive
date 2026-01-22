@@ -7,7 +7,7 @@ import aiohttp
 from backend.core.config import DB_PATH
 from backend.shared.models.video import Video
 
-from .bili_api_client import BiliApiClient
+from .bili_client import BiliClient
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from .database import Database, init_db
 from .delay_manager import DelayManager
@@ -50,7 +50,7 @@ async def main():
         delay_manager = DelayManager.get_instance()
 
         async with aiohttp.ClientSession() as session:
-            bili_client = BiliApiClient(session)
+            bili_client = BiliClient(session)
             video_service = VideoService(bili_client, db)
 
             for user in users:
@@ -58,10 +58,14 @@ async def main():
 
                 video_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
 
-                # 启动生产者任务，填充队列，在内部更新delay_manager
-                producer_task = asyncio.create_task(
-                    bili_client.get_user_all_videos(user, video_queue, delay_manager)
-                )
+                async def producer_task():
+                    try:
+                        async for video in bili_client.get_user_all_videos(user, delay_manager):
+                            await video_queue.put(video)
+                    except Exception as e:
+                        logger.critical(f"用户 {user} 任务中断: {e}")
+                    
+                p_task = asyncio.create_task(producer_task())
 
                 # 启动一组消费者任务
                 consumer_tasks = [
@@ -71,7 +75,7 @@ async def main():
                     for _ in range(MAX_CONCURRENCY)
                 ]
 
-                await producer_task         # 等待生产者完成（所有视频bvid都已放入队列)
+                await p_task                # 等待生产者完成（所有视频bvid都已放入队列)
                 await video_queue.join()    # 生产者完成后，等待队列被消费者完全清空
 
                 # 发送结束信号(None)给所有消费者
