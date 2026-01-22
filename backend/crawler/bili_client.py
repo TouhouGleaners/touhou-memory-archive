@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 import aiohttp
 
 from .bili_api import BiliAPI
-from .config import PRODUCER_PAGE_DELAY_SECONDS, DELAY_SECONDS
+from .config import PRODUCER_PAGE_DELAY_SECONDS
 from .delay_manager import DelayManager
 
 from ..shared.models.video import Video, VideoPart
@@ -21,7 +21,7 @@ class BiliClient:
     async def get_user_all_videos(
         self,
         mid: int,
-        delay_manager = DelayManager,
+        delay_manager: DelayManager,
         page_size: int = 50
     ) -> AsyncGenerator[Video, None]:
         """
@@ -96,7 +96,8 @@ class BiliClient:
                 break
 
             page += 1
-            await asyncio.sleep(DELAY_SECONDS)
+            sleep_time = DelayManager.get_instance().get_request_delay()
+            await asyncio.sleep(sleep_time)
 
     async def get_video_info(self, bvid: str) -> dict:
         return await self.api.get_video_detail(bvid)

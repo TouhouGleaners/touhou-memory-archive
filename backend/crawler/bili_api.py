@@ -1,10 +1,11 @@
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Callable
 
 import aiohttp
 
-from .config import HEADERS, DELAY_SECONDS
+from .config import HEADERS
+from .delay_manager import DelayManager
 from .wbi_signer import WbiSigner
 
 
@@ -24,8 +25,7 @@ class BiliAPI:
         need_wbi: bool = False,
         headers: dict = None,
         retry_times: int = 3,
-        retry_delay: int = 5,
-        delay_seconds: float = DELAY_SECONDS
+        retry_delay: int = 5
     ) -> dict:
         """
         公共 API 请求函数
@@ -37,7 +37,6 @@ class BiliAPI:
             headers: 特殊的headers
             retry_times: 最大重试次数
             retry_delay: 重试延迟基础时间（秒）
-            delay_seconds: 请求延迟
         
         Returns:
             经过 process_data 处理后的数据
@@ -57,6 +56,7 @@ class BiliAPI:
 
         for attempt in range(retry_times):
             is_last_attempt = attempt == retry_times - 1
+            current_delay = retry_delay * (attempt + 1)
 
             try:
                 async with self.session.get(url=url, params=params, headers=req_headers) as response:
@@ -78,19 +78,20 @@ class BiliAPI:
                 
             except (aiohttp.ClientError, aiohttp.ClientResponseError) as e:
                 if not is_last_attempt:
-                    logger.warning(f"请求失败，等待重试: {str(e)}")
-                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    logger.warning(f"请求失败，等待 {current_delay} 秒后重试: {str(e)}")
+                    await asyncio.sleep(current_delay)
                     continue
                 raise Exception(f"API请求失败: {str(e)}")
             
             except Exception as e:
                 if not is_last_attempt:
-                    logger.warning(f"数据处理失败，等待重试: {str(e)}")
-                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    logger.warning(f"数据处理失败，等待 {current_delay} 秒后重试: {str(e)}")
+                    await asyncio.sleep(current_delay)
                     continue
                 raise
             finally:
-                await asyncio.sleep(delay_seconds)
+                sleep_time = DelayManager.get_instance().get_request_delay()
+                await asyncio.sleep(sleep_time)
         return {}
     
     async def get_user_video_list(self, mid: int, pn: int, ps: int) -> dict:
