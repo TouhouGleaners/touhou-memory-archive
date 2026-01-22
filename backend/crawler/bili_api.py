@@ -81,19 +81,18 @@ class BiliAPI:
                     logger.warning(f"请求失败，等待 {current_delay} 秒后重试: {str(e)}")
                     await asyncio.sleep(current_delay)
                     continue
-                raise Exception(f"API请求失败: {str(e)}")
+                raise Exception(f"API请求失败: {str(e)}") from e
             
             except Exception as e:
                 if not is_last_attempt:
                     logger.warning(f"数据处理失败，等待 {current_delay} 秒后重试: {str(e)}")
                     await asyncio.sleep(current_delay)
                     continue
-                raise
+                raise Exception(f"数据处理失败: {str(e)}") from e
             finally:
                 sleep_time = DelayManager.get_instance().get_request_delay()
                 await asyncio.sleep(sleep_time)
-        return {}
-    
+
     async def get_user_video_list(self, mid: int, pn: int, ps: int) -> dict:
         """获取用户空间的视频列表"""
         return await self.request(
