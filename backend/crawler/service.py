@@ -5,7 +5,7 @@ import asyncio
 from backend.shared.models.video import Video, VideoPart
 
 from .database import Database
-from .bili_api_client import BiliApiClient
+from .bili_client import BiliClient
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class VideoService:
     """封装所有视频处理相关的业务逻辑"""
-    def __init__(self, client: BiliApiClient, db: Database):
+    def __init__(self, client: BiliClient, db: Database):
         self.client = client
         self.db = db
         self.tag_pattern = re.compile(r'^\$发现《.+?》\^$')

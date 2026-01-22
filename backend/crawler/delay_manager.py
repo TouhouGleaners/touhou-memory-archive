@@ -1,10 +1,12 @@
+from __future__ import annotations
 import logging
 from random import uniform
-from typing import Optional
 
-from .config import USER_SWITCH_CONFIG
+from .config import USER_SWITCH_CONFIG, REQUEST_DELAY_RANGE
+
 
 logger = logging.getLogger(__name__)
+
 
 class DelayManager:
     """
@@ -15,14 +17,14 @@ class DelayManager:
     （例如，使用 asyncio.gather），则必须为 update_video_count 和
     get_user_switch_delay 方法添加同步机制（如 asyncio.Lock）以确保线程安全。
     """
-    _instance: Optional['DelayManager'] = None
+    _instance: DelayManager | None = None
     
     def __init__(self):
         self.last_user_video_count: int = 0
         self.config = USER_SWITCH_CONFIG
     
     @classmethod
-    def get_instance(cls) -> 'DelayManager':
+    def get_instance(cls) -> DelayManager:
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -47,3 +49,7 @@ class DelayManager:
         )
 
         return final_delay
+    
+    def get_request_delay(self) -> float:
+        """计算单个 API 请求之间的随机延迟（抖动）"""
+        return uniform(*REQUEST_DELAY_RANGE)

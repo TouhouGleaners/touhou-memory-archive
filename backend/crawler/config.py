@@ -1,5 +1,4 @@
 import os
-from random import uniform
 from pathlib import Path
 
 
@@ -14,8 +13,7 @@ MAX_QUEUE_SIZE = 200
 
 
 # --- 延迟控制 ---
-# 单个API请求之间的随机延迟
-DELAY_SECONDS = lambda: uniform(0.3, 0.5)
+REQUEST_DELAY_RANGE = (0.5, 1.0)  # 请求间隔：(最小值, 最大值)
 # 生产者获取每页视频列表后的休眠时间（关键的风控规避策略）
 PRODUCER_PAGE_DELAY_SECONDS = 15
 
