@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
 
-from backend.app.database import get_db
-from backend.app.crud.crud_video import get_videos
+from app.database import get_db
+from app.crud.crud_video import get_videos
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 def export_data():
     print(">>> 正在初始化导出任务...")

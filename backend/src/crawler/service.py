@@ -2,7 +2,7 @@ import re
 import logging
 import asyncio
 
-from backend.shared.models.video import Video, VideoPart
+from shared.models.video import Video, VideoPart
 
 from .database import Database
 from .bili_client import BiliClient
