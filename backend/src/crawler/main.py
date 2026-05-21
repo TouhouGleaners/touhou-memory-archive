@@ -4,8 +4,8 @@ import logging
 
 import aiohttp
 
-from backend.core.config import DB_PATH
-from backend.shared.models.video import Video
+from core.config import DB_PATH
+from shared.models.video import Video
 
 from .bili_client import BiliClient
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE

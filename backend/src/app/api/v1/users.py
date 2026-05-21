@@ -3,7 +3,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 
-from backend.shared.models.user import User
+from shared.models.user import User
 
 from ...database import get_db
 from ...crud import crud_user
