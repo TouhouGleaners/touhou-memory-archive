@@ -11,7 +11,8 @@
     "deploy": "npm run build && git add docs && git commit -m 更新部署 && git push"
   },
   "dependencies": {
-    "vue": "^3.4.0"
+    "vue": "^3.4.0",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
