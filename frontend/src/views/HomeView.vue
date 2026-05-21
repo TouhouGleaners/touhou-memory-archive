@@ -41,7 +41,7 @@ import {
 } from '../utils/index.js' 
 
 export default {
-  name: 'App',
+  name: 'HomeView',
   components: { AppHeader, VideoTable, AppFooter, ScrollButtons },
   setup() {
     // --- 状态定义 ---
