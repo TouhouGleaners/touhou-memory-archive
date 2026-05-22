@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class BiliClient:
-    def __init__(self, session: aiohttp.ClientSession):
-        self.api = BiliAPI(session)
+    def __init__(self, api: BiliAPI):
+        self.api = api
 
     async def get_user_all_videos(
         self,
