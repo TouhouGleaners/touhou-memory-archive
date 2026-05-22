@@ -2,8 +2,6 @@ import asyncio
 import logging
 from typing import AsyncGenerator
 
-import aiohttp
-
 from crawler.api.bili_api import BiliAPI
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
 from shared.models.video import Video, VideoPart
