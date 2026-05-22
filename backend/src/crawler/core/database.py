@@ -3,9 +3,8 @@ from pathlib import Path
 from contextlib import contextmanager
 
 from core.config import DB_PATH
+from crawler.config import INIT_SQL_PATH
 from shared.models.video import Video
-
-from .config import INIT_SQL_PATH
 
 
 def init_db(db_path: Path = DB_PATH, init_sql_path: Path = INIT_SQL_PATH):

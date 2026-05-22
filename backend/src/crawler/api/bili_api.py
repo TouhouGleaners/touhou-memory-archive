@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from typing import Any, Callable
+from typing import Any
 
 import aiohttp
 
-from .config import HEADERS
-from .delay_manager import DelayManager
+from crawler.config import HEADERS
+from crawler.core.delay_manager import DelayManager
+
 from .wbi_signer import WbiSigner
 
 

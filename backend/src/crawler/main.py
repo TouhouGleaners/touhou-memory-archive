@@ -7,11 +7,12 @@ import aiohttp
 from core.config import DB_PATH
 from shared.models.video import Video
 
-from .bili_client import BiliClient
+from crawler.core.video_fetcher import BiliClient
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
-from .database import Database, init_db
-from .delay_manager import DelayManager
-from .service import VideoService
+from crawler.core.database import Database, init_db
+from crawler.core.delay_manager import DelayManager
+from crawler.core.video_processor import VideoService
+
 
 logger = logging.getLogger(__name__)
 

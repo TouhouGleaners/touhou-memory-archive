@@ -4,11 +4,11 @@ from typing import AsyncGenerator
 
 import aiohttp
 
-from .bili_api import BiliAPI
-from .config import PRODUCER_PAGE_DELAY_SECONDS
-from .delay_manager import DelayManager
+from crawler.api.bili_api import BiliAPI
+from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
+from shared.models.video import Video, VideoPart
 
-from ..shared.models.video import Video, VideoPart
+from .delay_manager import DelayManager
 
 
 logger = logging.getLogger(__name__)
