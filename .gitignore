@@ -197,7 +197,7 @@ cython_debug/
 *.exe
 cookies.txt
 
-
+/node_modules/
 frontend/node_modules/
 
 data/archives/
