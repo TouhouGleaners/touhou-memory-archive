@@ -2,21 +2,19 @@ import asyncio
 import logging
 from typing import AsyncGenerator
 
-import aiohttp
+from crawler.api.bili_api import BiliAPI
+from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
+from shared.models.video import Video, VideoPart
 
-from .bili_api import BiliAPI
-from .config import PRODUCER_PAGE_DELAY_SECONDS
 from .delay_manager import DelayManager
-
-from ..shared.models.video import Video, VideoPart
 
 
 logger = logging.getLogger(__name__)
 
 
 class BiliClient:
-    def __init__(self, session: aiohttp.ClientSession):
-        self.api = BiliAPI(session)
+    def __init__(self, api: BiliAPI):
+        self.api = api
 
     async def get_user_all_videos(
         self,

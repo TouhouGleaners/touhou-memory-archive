@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from random import uniform
 
-from .config import USER_SWITCH_CONFIG, REQUEST_DELAY_RANGE
+from crawler.config import USER_SWITCH_CONFIG, REQUEST_DELAY_RANGE
 
 
 logger = logging.getLogger(__name__)

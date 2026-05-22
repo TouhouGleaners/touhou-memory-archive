@@ -7,11 +7,13 @@ import aiohttp
 from core.config import DB_PATH
 from shared.models.video import Video
 
-from .bili_client import BiliClient
+from crawler.api.bili_api import BiliAPI
+from crawler.core.video_fetcher import BiliClient
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
-from .database import Database, init_db
-from .delay_manager import DelayManager
-from .service import VideoService
+from crawler.core.database import Database, init_db
+from crawler.core.delay_manager import DelayManager
+from crawler.core.video_processor import VideoService
+
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,8 @@ async def main():
         delay_manager = DelayManager.get_instance()
 
         async with aiohttp.ClientSession() as session:
-            bili_client = BiliClient(session)
+            bili_api = BiliAPI(session)
+            bili_client = BiliClient(bili_api)
             video_service = VideoService(bili_client, db)
 
             for user in users:

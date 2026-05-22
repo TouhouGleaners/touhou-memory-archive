@@ -5,7 +5,7 @@ import asyncio
 from shared.models.video import Video, VideoPart
 
 from .database import Database
-from .bili_client import BiliClient
+from crawler.core.video_fetcher import BiliClient
 
 
 logger = logging.getLogger(__name__)
