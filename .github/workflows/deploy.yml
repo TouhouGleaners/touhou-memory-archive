@@ -35,16 +35,21 @@ jobs:
           mv .data_temp/videos.json frontend/public/videos.json
           rm -rf .data_temp
 
-      # 构建并部署
-      - name: Build and Deploy
+      # 安装依赖并构建
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22'
-          cache: 'npm'
-      - run: |
+
+      - name: Install and Build
+        working-directory: ./frontend
+        run: |
           npm install
           npm run build
-      - uses: peaceiris/actions-gh-pages@v3
+
+      # 部署到 GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./frontend/dist
