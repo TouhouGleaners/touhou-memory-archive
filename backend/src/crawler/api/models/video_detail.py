@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Page(BaseModel):
@@ -42,4 +42,4 @@ class VideoDetailData(BaseModel):
     state: int | None = None
     owner: Owner
     stat: VideoStat
-    pages: list[Page] = []
+    pages: list[Page] = Field(default_factory=list)

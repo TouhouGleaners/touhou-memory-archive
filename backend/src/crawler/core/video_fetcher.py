@@ -3,8 +3,9 @@ import logging
 from typing import AsyncGenerator
 
 from crawler.api.bili_api import BiliAPI
+from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
-from crawler.converters import space_dict_to_video, season_dict_to_video
+from crawler.converters import space_item_to_video, season_item_to_video, page_to_part
 from crawler.models import Video, VideoPart
 
 from .delay_manager import DelayManager
@@ -50,7 +51,8 @@ class BiliClient:
 
             for v_data in vlist:
                 try:
-                    video = space_dict_to_video(v_data)
+                    item = SpaceVideoItem.model_validate(v_data)
+                    video = space_item_to_video(item)
                 except Exception:
                     continue
 
@@ -84,7 +86,8 @@ class BiliClient:
 
             for arc in archives:
                 try:
-                    yield season_dict_to_video(arc, mid, season_id)
+                    item = SeasonArchiveItem.model_validate(arc)
+                    yield season_item_to_video(item, mid, season_id)
                 except Exception:
                     continue
 
@@ -101,7 +104,7 @@ class BiliClient:
     async def get_video_parts(self, bvid: str) -> list[VideoPart]:
         data = await self.api.get_video_parts(bvid)
         if isinstance(data, list):
-            return [VideoPart(cid=p['cid'], index=p['page'], title=p.get('part', ''), duration=p.get('duration', 0)) for p in data]
+            return [page_to_part(Page.model_validate(p)) for p in data]
         return []
 
     async def get_video_tags(self, bvid: str) -> list[str]:

@@ -1,4 +1,7 @@
-from crawler.api.models import VideoDetailData, VideoTag, SpaceVideoItem
+from crawler.api.models import (
+    VideoDetailData, VideoTag, Page,
+    SpaceVideoItem, SeasonArchiveItem,
+)
 from crawler.models import Video, VideoPart
 
 
@@ -33,53 +36,52 @@ def video_detail_to_video(
         share_count=detail.stat.share,
         like_count=detail.stat.like,
         tags=[t.tag_name for t in tags if t.tag_type != "bgm"],
-        parts=[
-            VideoPart(cid=p.cid, index=p.page, title=p.part, duration=p.duration)
-            for p in detail.pages
-        ],
+        parts=[page_to_part(p) for p in detail.pages],
     )
 
 
-def space_dict_to_video(data: dict) -> Video:
-    """将空间搜索 vlist 中的原始 dict 转换为领域模型"""
+def space_item_to_video(item: SpaceVideoItem) -> Video:
+    """将空间搜索 vlist 中的单个条目转换为领域模型"""
     return Video(
-        aid=data['aid'],
-        bvid=data['bvid'],
-        mid=data.get('mid', 0),
-        title=data.get('title', ''),
-        description=data.get('description', ''),
-        cover_url=data.get('pic', ''),
-        published_at=data.get('created', 0),
-        season_id=data.get('season_id') or None,
+        aid=item.aid,
+        bvid=item.bvid,
+        mid=item.mid,
+        title=item.title,
+        description=item.description,
+        cover_url=item.pic,
+        published_at=item.created,
+        season_id=item.season_id or None,
     )
 
 
-def season_dict_to_video(data: dict, mid: int, season_id: int) -> Video:
-    """将合集 archives 中的原始 dict 转换为领域模型"""
+def season_item_to_video(item: SeasonArchiveItem, mid: int, season_id: int) -> Video:
+    """将合集 archives 中的单个条目转换为领域模型"""
     return Video(
-        aid=data['aid'],
-        bvid=data['bvid'],
+        aid=item.aid,
+        bvid=item.bvid,
         mid=mid,
-        title=data.get('title', ''),
-        cover_url=data.get('pic', ''),
-        published_at=data.get('pubdate', 0),
-        created_at=data.get('ctime', 0),
-        duration=data.get('duration', 0),
+        title=item.title,
+        cover_url=item.pic,
+        published_at=item.pubdate,
+        created_at=item.ctime,
+        duration=item.duration,
         season_id=season_id,
     )
 
 
-def pages_dict_to_parts(pages: list[dict]) -> list[VideoPart]:
-    """将 view 接口返回的 pages dict 列表转换为 VideoPart 列表"""
-    return [
-        VideoPart(
-            cid=p['cid'],
-            index=p['page'],
-            title=p.get('part', ''),
-            duration=p.get('duration', 0),
-        )
-        for p in pages
-    ]
+def page_to_part(page: Page) -> VideoPart:
+    """将详情接口的单个分P转换为领域模型"""
+    return VideoPart(
+        cid=page.cid,
+        index=page.page,
+        title=page.part,
+        duration=page.duration,
+    )
+
+
+def pages_to_parts(pages: list[Page]) -> list[VideoPart]:
+    """将详情接口的分P列表转换为领域模型列表"""
+    return [page_to_part(p) for p in pages]
 
 
 def extract_season_ids(items: list[SpaceVideoItem]) -> set[int]:

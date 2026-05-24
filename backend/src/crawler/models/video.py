@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class VideoPart(BaseModel):
@@ -47,5 +47,5 @@ class Video(BaseModel):
 
     # 关联
     season_id: int | None = None
-    tags: list[str] = []
-    parts: list[VideoPart] = []
+    tags: list[str] = Field(default_factory=list)
+    parts: list[VideoPart] = Field(default_factory=list)

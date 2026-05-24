@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SpaceVideoItem(BaseModel):
@@ -15,7 +15,7 @@ class SpaceVideoItem(BaseModel):
 
 class SpaceList(BaseModel):
     """对应 /x/space/wbi/arc/search → data.list"""
-    vlist: list[SpaceVideoItem] = []
+    vlist: list[SpaceVideoItem] = Field(default_factory=list)
 
 
 class SpacePageInfo(BaseModel):
@@ -56,6 +56,6 @@ class AppSpaceItem(BaseModel):
 
 class AppSpaceData(BaseModel):
     """对应 APP 接口 → data"""
-    item: list[AppSpaceItem] = []
+    item: list[AppSpaceItem] = Field(default_factory=list)
     has_next: bool = False
     count: int = 0

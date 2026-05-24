@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SeasonArchiveItem(BaseModel):
@@ -29,6 +29,6 @@ class SeasonPageInfo(BaseModel):
 
 class SeasonArchivesData(BaseModel):
     """对应 seasons_archives_list → data"""
-    archives: list[SeasonArchiveItem] = []
+    archives: list[SeasonArchiveItem] = Field(default_factory=list)
     meta: SeasonMeta | None = None
     page: SeasonPageInfo | None = None
