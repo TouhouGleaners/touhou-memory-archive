@@ -1,10 +1,4 @@
 import os
-from pathlib import Path
-
-
-INIT_SQL_PATH: Path = Path(__file__).parent / "init.sql" 
-
-
 # --- 全局行为控制 ---
 # 全局最大并发数：所有网络请求、数据库操作都受此限制(fetch_video_list除外)
 MAX_CONCURRENCY = 5

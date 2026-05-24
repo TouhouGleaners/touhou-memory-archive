@@ -1,3 +1,8 @@
-from crawler.models.user import User
+from sqlmodel import SQLModel, Field
 
-__all__ = ["User"]
+
+class User(SQLModel, table=True):
+    __tablename__: str = "users"
+
+    mid: int = Field(primary_key=True)
+    name: str

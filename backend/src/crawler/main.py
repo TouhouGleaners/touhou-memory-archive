@@ -1,16 +1,15 @@
-import os
 import asyncio
 import logging
 
 import aiohttp
 
-from core.config import DB_PATH
-from shared.models.video import Video
+from shared.database import init_db
+from shared.schemas import VideoSchema
 
 from crawler.api.bili_api import BiliAPI
 from crawler.core.video_fetcher import BiliClient
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
-from crawler.core.database import Database, init_db
+from crawler.core.database import get_all_user_mids
 from crawler.core.delay_manager import DelayManager
 from crawler.core.video_processor import VideoService
 
@@ -25,7 +24,7 @@ async def process_video_worker(
 ):
     """消费者 Worker: 从队列中获取视频，并委托给 Service 进行处理。"""
     while True:
-        video: Video = await queue.get()
+        video: VideoSchema = await queue.get()
         if video is None:
             break
         try:
@@ -37,71 +36,61 @@ async def process_video_worker(
 
 
 async def main():
-    if not os.path.exists(DB_PATH):
-        init_db()
-        logger.info("数据库初始化完成")
-    db = Database()
+    init_db()
+    logger.info("数据库初始化完成")
 
-    try:
-        users = db.get_users()
-        if not users:
-            logger.warning("数据库中没有用户，程序退出。")
-            return
-    
-        semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
-        delay_manager = DelayManager.get_instance()
+    users = get_all_user_mids()
+    if not users:
+        logger.warning("数据库中没有用户，程序退出。")
+        return
 
-        async with aiohttp.ClientSession() as session:
-            bili_api = BiliAPI(session)
-            bili_client = BiliClient(bili_api)
-            video_service = VideoService(bili_client, db)
+    semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
+    delay_manager = DelayManager.get_instance()
 
-            for user in users:
-                logger.info(f"--- 开始处理用户 {user} ---")
+    async with aiohttp.ClientSession() as http_session:
+        bili_api = BiliAPI(http_session)
+        bili_client = BiliClient(bili_api)
+        video_service = VideoService(bili_client)
 
-                video_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
+        for user in users:
+            logger.info(f"--- 开始处理用户 {user} ---")
 
-                async def run_producer():
-                    try:
-                        async for video in bili_client.get_user_all_videos(user, delay_manager):
-                            await video_queue.put(video)
-                    except asyncio.CancelledError:
-                        logger.info(f"用户 {user} 生产任务被取消")
-                        raise
-                    except Exception as e:
-                        logger.critical(f"用户 {user} 任务中断: {e}")
-                
-                # 创建 Task
-                p_task = asyncio.create_task(run_producer())
+            video_queue = asyncio.Queue(maxsize=MAX_QUEUE_SIZE)
 
-                # 启动一组消费者任务
-                consumer_tasks = [
-                    asyncio.create_task(
-                        process_video_worker(video_queue, video_service, semaphore)
-                    )
-                    for _ in range(MAX_CONCURRENCY)
-                ]
+            async def run_producer():
+                try:
+                    async for video in bili_client.get_user_all_videos(user, delay_manager):
+                        await video_queue.put(video)
+                except asyncio.CancelledError:
+                    logger.info(f"用户 {user} 生产任务被取消")
+                    raise
+                except Exception as e:
+                    logger.critical(f"用户 {user} 任务中断: {e}")
 
-                await p_task                # 等待生产者完成（所有视频bvid都已放入队列)
-                await video_queue.join()    # 生产者完成后，等待队列被消费者完全清空
+            p_task = asyncio.create_task(run_producer())
 
-                # 发送结束信号(None)给所有消费者
-                for _ in range(MAX_CONCURRENCY):
-                    await video_queue.put(None)
+            consumer_tasks = [
+                asyncio.create_task(
+                    process_video_worker(video_queue, video_service, semaphore)
+                )
+                for _ in range(MAX_CONCURRENCY)
+            ]
 
-                # 等待所有消费者任务都确认退出
-                await asyncio.gather(*consumer_tasks)
-                logger.info(f"--- 用户 {user} 处理完成 ---")
+            await p_task
+            await video_queue.join()
 
-                # 在处理下一个用户前，应用动态延迟
-                if user != users[-1]:
-                    switch_delay = delay_manager.get_user_switch_delay()
-                    logger.info(f"将在 {switch_delay:.2f} 秒后处理下一个用户...")
-                    await asyncio.sleep(switch_delay)
-                    
-        logger.info("所有用户处理完毕，程序退出")
-    finally:
-        db.close()
+            for _ in range(MAX_CONCURRENCY):
+                await video_queue.put(None)
+
+            await asyncio.gather(*consumer_tasks)
+            logger.info(f"--- 用户 {user} 处理完成 ---")
+
+            if user != users[-1]:
+                switch_delay = delay_manager.get_user_switch_delay()
+                logger.info(f"将在 {switch_delay:.2f} 秒后处理下一个用户...")
+                await asyncio.sleep(switch_delay)
+
+    logger.info("所有用户处理完毕，程序退出")
 
 
 if __name__ == "__main__":

@@ -1,76 +1,39 @@
-import sqlite3
-from pathlib import Path
-from contextlib import contextmanager
+from sqlmodel import Session, select, delete, col
 
-from core.config import DB_PATH
-from crawler.config import INIT_SQL_PATH
-from crawler.models import Video
-
-
-def init_db(db_path: Path = DB_PATH, init_sql_path: Path = INIT_SQL_PATH):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    with open(init_sql_path, 'r', encoding='utf-8') as f:
-        sql_script = f.read()
-    cursor.executescript(sql_script)
-    conn.commit()
-    conn.close()
+from shared.database import engine
+from shared.models import Video, VideoPart
+from shared.models.user import User
+from shared.schemas import VideoSchema
 
 
-class Database:
-    def __init__(self, db_path: Path = DB_PATH):
-        self.conn = sqlite3.connect(db_path)
-        self.conn.row_factory = sqlite3.Row
-        self.cursor = self.conn.cursor()
+def get_all_user_mids() -> list[int]:
+    with Session(engine) as session:
+        results = session.exec(select(User.mid))
+        return list(results.all())
 
-    def close(self):
-        self.conn.close()
 
-    def get_users(self) -> list[int]:
-        self.cursor.execute("SELECT mid FROM users")
-        rows = self.cursor.fetchall()
-        return [row['mid'] for row in rows]
+def save_video(schema: VideoSchema) -> None:
+    """Upsert 视频及其分P。每次调用创建独立 session。"""
+    with Session(engine) as session:
+        video_model = Video.from_schema(schema)
 
-    @contextmanager
-    def transaction(self):
-        try:
-            self.cursor.execute("BEGIN")
-            yield
-            self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
-            raise e
+        existing = session.get(Video, video_model.aid)
+        if existing:
+            for key, value in video_model.model_dump(exclude={"parts"}).items():
+                setattr(existing, key, value)
+        else:
+            session.add(video_model)
 
-    def save_video_info(self, video: Video):
-        sql = """
-        INSERT OR REPLACE INTO videos (
-            aid, bvid, mid, title, description, cover_url, duration,
-            published_at, created_at,
-            category_id, category_name, copyright, state,
-            view_count, danmaku_count, reply_count, favorite_count,
-            coin_count, share_count, like_count,
-            tags, touhou_status, season_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        tags_str = ','.join(video.tags)
-        params = (
-            video.aid, video.bvid, video.mid, video.title, video.description,
-            video.cover_url, video.duration,
-            video.published_at, video.created_at,
-            video.category_id, video.category_name, video.copyright, video.state,
-            video.view_count, video.danmaku_count, video.reply_count, video.favorite_count,
-            video.coin_count, video.share_count, video.like_count,
-            tags_str, video.touhou_status, video.season_id,
-        )
-        self.cursor.execute(sql, params)
+        # 批量删除旧分P
+        session.exec(delete(VideoPart).where(col(VideoPart.aid) == schema.aid))
 
-        if video.parts:
-            parts_sql = """
-            INSERT OR REPLACE INTO video_parts (cid, aid, idx, title, duration)
-            VALUES (?, ?, ?, ?, ?)
-            """
-            parts_params = [
-                (part.cid, video.aid, part.index, part.title, part.duration)
-                for part in video.parts
-            ]
-            self.cursor.executemany(parts_sql, parts_params)
+        for part in schema.parts:
+            session.add(VideoPart(
+                cid=part.cid,
+                aid=schema.aid,
+                idx=part.index,
+                title=part.title,
+                duration=part.duration,
+            ))
+
+        session.commit()

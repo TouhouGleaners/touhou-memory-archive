@@ -4,10 +4,9 @@ import asyncio
 
 from crawler.api.models import Page
 from crawler.converters import pages_to_parts
-from crawler.models import Video
-
-from .database import Database
+from crawler.core.database import save_video
 from crawler.core.video_fetcher import BiliClient
+from shared.schemas import VideoSchema
 
 
 logger = logging.getLogger(__name__)
@@ -15,9 +14,8 @@ logger = logging.getLogger(__name__)
 
 class VideoService:
     """封装所有视频处理相关的业务逻辑"""
-    def __init__(self, client: BiliClient, db: Database):
+    def __init__(self, client: BiliClient):
         self.client = client
-        self.db = db
         self.tag_pattern = re.compile(r'^\$发现《.+?》\^$')
         self.touhou_keywords = {
             "东方Project", "东方project", "东方PROJECT",
@@ -29,7 +27,7 @@ class VideoService:
         """自动检测是否为东方视频 是:1 否:2"""
         return 1 if any(keyword in tag for tag in tags for keyword in self.touhou_keywords) else 2
 
-    async def process_video(self, video: Video, semaphore: asyncio.Semaphore):
+    async def process_video(self, video: VideoSchema, semaphore: asyncio.Semaphore):
         """处理单个视频的完整业务流程"""
         try:
             async with semaphore:
@@ -38,7 +36,7 @@ class VideoService:
                 info_task = self.client.get_video_info(video.bvid)
 
             results = await asyncio.gather(tags_task, info_task, return_exceptions=True)
-            
+
             video_tags_result = []
             if not isinstance(results[0], Exception):
                 video_tags_result = results[0]
@@ -47,11 +45,9 @@ class VideoService:
 
             if not isinstance(results[1], Exception):
                 view_info = results[1]
-                # 合集API没给简介，但view接口给了，这里覆盖更新
                 if 'desc' in view_info:
                     video.description = view_info['desc']
 
-                # view接口返回的 pages 结构与 pagelist 接口基本一致
                 if 'pages' in view_info:
                     try:
                         pages = [Page.model_validate(p) for p in view_info['pages']]
@@ -65,9 +61,7 @@ class VideoService:
             video.tags = [tag for tag in video_tags_result if not self.tag_pattern.match(tag)]
             video.touhou_status = self._is_touhou(video.tags)
 
-            # 保存信息
-            with self.db.transaction():
-                self.db.save_video_info(video)
+            save_video(video)
 
             logger.info(f"视频 {video.bvid} 处理并保存成功。")
 

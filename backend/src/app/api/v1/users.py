@@ -1,11 +1,11 @@
 import logging
-import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Path
+from sqlmodel import Session
 
-from shared.models.user import User
+from shared.database import get_session
+from shared.schemas.user import UserSchema
 
-from ...database import get_db
 from ...crud import crud_user
 
 
@@ -13,17 +13,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/{mid}", response_model=User, summary="获取单个 UP 主信息")
+@router.get("/{mid}", response_model=UserSchema, summary="获取单个 UP 主信息")
 def read_user(
     mid: int = Path(..., gt=0, description="用户 mid"),
-    db: sqlite3.Connection = Depends(get_db)
+    session: Session = Depends(get_session)
 ):
     """通过用户 mid 获取单个 UP 主信息"""
     try:
-        user_data = crud_user.get_user_by_mid(db, mid)
-        if user_data is None:
+        user = crud_user.get_user_by_mid(session, mid)
+        if user is None:
             raise HTTPException(status_code=404, detail="User not found")
-        return user_data
+        return user
     except HTTPException:
         raise
     except Exception as e:

@@ -6,7 +6,7 @@ from crawler.api.bili_api import BiliAPI
 from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
 from crawler.converters import space_item_to_video, season_item_to_video, page_to_part
-from crawler.models import Video, VideoPart
+from shared.schemas import VideoSchema, VideoPartSchema
 
 from .delay_manager import DelayManager
 
@@ -23,7 +23,7 @@ class BiliClient:
         mid: int,
         delay_manager: DelayManager,
         page_size: int = 50
-    ) -> AsyncGenerator[Video, None]:
+    ) -> AsyncGenerator[VideoSchema, None]:
         """
         业务逻辑：循环分页获取用户所有视频，并自动展开合集
         """
@@ -70,7 +70,7 @@ class BiliClient:
             page += 1
             await asyncio.sleep(PRODUCER_PAGE_DELAY_SECONDS)
 
-    async def _fetch_season(self, mid: int, season_id: int, delay_manager: DelayManager) -> AsyncGenerator[Video, None]:
+    async def _fetch_season(self, mid: int, season_id: int, delay_manager: DelayManager) -> AsyncGenerator[VideoSchema, None]:
         """内部递归：获取合集"""
         page = 1
 
@@ -101,7 +101,7 @@ class BiliClient:
     async def get_video_info(self, bvid: str) -> dict:
         return await self.api.get_video_detail(bvid)
 
-    async def get_video_parts(self, bvid: str) -> list[VideoPart]:
+    async def get_video_parts(self, bvid: str) -> list[VideoPartSchema]:
         data = await self.api.get_video_parts(bvid)
         if isinstance(data, list):
             return [page_to_part(Page.model_validate(p)) for p in data]
