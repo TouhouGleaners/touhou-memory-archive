@@ -33,54 +33,41 @@ class VideoService:
         本方法会补充详情、标签、统计数据后保存到数据库。
 
         流程：
-        1. 并发请求标签接口和详情接口（受 semaphore 限流）
+        1. 在 semaphore 限流下并发请求标签接口和详情接口
         2. 用详情数据填充 video 的 description、parts、分类、统计等字段
         3. 用标签数据填充 tags，同时过滤掉 bgm 类型的标签
         4. 根据标签关键词判断 touhou_status
         5. 保存到数据库
         """
         try:
-            # 并发获取标签和详情，各自受 semaphore 限流
+            # semaphore 包住整个 gather，确保并发 I/O 真正受限
             async with semaphore:
-                tags_task = self.client.get_video_tags(video.bvid)
-            async with semaphore:
-                info_task = self.client.get_video_info(video.bvid)
-
-            results = await asyncio.gather(tags_task, info_task, return_exceptions=True)
-
-            # 解析标签结果（results[0]）
-            tags: list[VideoTag] = []
-            if not isinstance(results[0], Exception):
-                tags = results[0]
-            else:
-                logger.warning(f"获取视频 {video.bvid} 的标签失败: {results[0]}")
-
-            # 解析详情结果（results[1]）
-            detail: VideoDetailData | None = None
-            if not isinstance(results[1], Exception):
-                detail = results[1]
-            else:
-                logger.warning(f"获取视频 {video.bvid} 的详情失败: {results[1]}")
+                tags, detail = await asyncio.gather(
+                    self.client.get_video_tags(video.bvid),
+                    self.client.get_video_info(video.bvid),
+                )
 
             # 用详情数据补全 video schema
-            if detail is not None:
-                video.description = detail.desc
+            video.description = detail.desc
+            video.category_id = detail.tid
+            video.category_name = detail.tname
+            video.copyright = detail.copyright
+            video.state = detail.state
+
+            video.view_count = detail.stat.view
+            video.danmaku_count = detail.stat.danmaku
+            video.reply_count = detail.stat.reply
+            video.favorite_count = detail.stat.favorite
+            video.coin_count = detail.stat.coin
+            video.share_count = detail.stat.share
+            video.like_count = detail.stat.like
+
+            # 分P解析带防御性处理
+            try:
                 video.parts = pages_to_parts(detail.pages)
-
-                # 分类信息
-                video.category_id = detail.tid
-                video.category_name = detail.tname
-                video.copyright = detail.copyright
-                video.state = detail.state
-
-                # 统计快照
-                video.view_count = detail.stat.view
-                video.danmaku_count = detail.stat.danmaku
-                video.reply_count = detail.stat.reply
-                video.favorite_count = detail.stat.favorite
-                video.coin_count = detail.stat.coin
-                video.share_count = detail.stat.share
-                video.like_count = detail.stat.like
+            except Exception as e:
+                logger.warning(f"解析视频 {video.bvid} 分P失败: {e}")
+                video.parts = []
 
             # 标签处理：过滤 bgm 标签，然后判断是否为东方视频
             video.tags = [t.tag_name for t in tags if t.tag_type != "bgm"]

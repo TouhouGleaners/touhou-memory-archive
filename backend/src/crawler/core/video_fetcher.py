@@ -98,13 +98,10 @@ class BiliClient:
             sleep_time = delay_manager.get_request_delay()
             await asyncio.sleep(sleep_time)
 
-    async def get_video_info(self, bvid: str) -> VideoDetailData | None:
-        try:
-            raw = await self.api.get_video_detail(bvid)
-            return VideoDetailData.model_validate(raw)
-        except Exception as e:
-            logger.warning(f"获取视频 {bvid} 详情失败: {e}")
-            return None
+    async def get_video_info(self, bvid: str) -> VideoDetailData:
+        """获取视频详情，失败时直接抛异常"""
+        raw = await self.api.get_video_detail(bvid)
+        return VideoDetailData.model_validate(raw)
 
     async def get_video_parts(self, bvid: str) -> list[VideoPartSchema]:
         data = await self.api.get_video_parts(bvid)
