@@ -115,6 +115,6 @@ class BiliClient:
         for t in data:
             try:
                 tags.append(VideoTag.model_validate(t))
-            except Exception:
+            except ValueError:
                 logger.warning(f"跳过格式异常的标签: {t}")
         return tags
