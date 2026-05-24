@@ -3,7 +3,7 @@ import logging
 from typing import AsyncGenerator
 
 from crawler.api.bili_api import BiliAPI
-from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page, VideoTag
+from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page, VideoTag, VideoDetailData
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
 from crawler.converters import space_item_to_video, season_item_to_video, page_to_part
 from shared.schemas import VideoSchema, VideoPartSchema
@@ -98,8 +98,13 @@ class BiliClient:
             sleep_time = delay_manager.get_request_delay()
             await asyncio.sleep(sleep_time)
 
-    async def get_video_info(self, bvid: str) -> dict:
-        return await self.api.get_video_detail(bvid)
+    async def get_video_info(self, bvid: str) -> VideoDetailData | None:
+        try:
+            raw = await self.api.get_video_detail(bvid)
+            return VideoDetailData.model_validate(raw)
+        except Exception as e:
+            logger.warning(f"获取视频 {bvid} 详情失败: {e}")
+            return None
 
     async def get_video_parts(self, bvid: str) -> list[VideoPartSchema]:
         data = await self.api.get_video_parts(bvid)
