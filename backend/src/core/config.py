@@ -3,7 +3,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-load_dotenv(Path(__file__).parent.parent / ".env")
+_BACKEND_DIR = Path(__file__).parent.parent.parent
+
+load_dotenv(_BACKEND_DIR / ".env")
 
 # 数据库路径
-DB_PATH = Path(__file__).parent.parent / "bili_videos.db"
+DB_PATH = _BACKEND_DIR / "bili_videos.db"

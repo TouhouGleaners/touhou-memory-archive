@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 from core.config import DB_PATH
 from crawler.config import INIT_SQL_PATH
-from shared.models.video import Video
+from crawler.models import Video
 
 
 def init_db(db_path: Path = DB_PATH, init_sql_path: Path = INIT_SQL_PATH):
@@ -33,7 +33,6 @@ class Database:
 
     @contextmanager
     def transaction(self):
-        """提供一个安全的事务上下文管理器"""
         try:
             self.cursor.execute("BEGIN")
             yield
@@ -43,30 +42,35 @@ class Database:
             raise e
 
     def save_video_info(self, video: Video):
-        """保存视频信息"""
-        video_sql = """
-        INSERT OR REPLACE INTO 
-        videos (aid, bvid, mid, title, description, pic, created, tags, touhou_status, season_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sql = """
+        INSERT OR REPLACE INTO videos (
+            aid, bvid, mid, title, description, cover_url, duration,
+            published_at, created_at,
+            category_id, category_name, copyright, state,
+            view_count, danmaku_count, reply_count, favorite_count,
+            coin_count, share_count, like_count,
+            tags, touhou_status, season_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-
         tags_str = ','.join(video.tags)
-        video_params = (
-            video.aid, video.bvid, video.mid, video.title, video.description, 
-            video.pic, video.created, tags_str, video.touhou_status, video.season_id
+        params = (
+            video.aid, video.bvid, video.mid, video.title, video.description,
+            video.cover_url, video.duration,
+            video.published_at, video.created_at,
+            video.category_id, video.category_name, video.copyright, video.state,
+            video.view_count, video.danmaku_count, video.reply_count, video.favorite_count,
+            video.coin_count, video.share_count, video.like_count,
+            tags_str, video.touhou_status, video.season_id,
         )
-        self.cursor.execute(video_sql, video_params)
-        
+        self.cursor.execute(sql, params)
+
         if video.parts:
             parts_sql = """
-            INSERT OR REPLACE INTO 
-            video_parts (cid, aid, page, part, duration, ctime)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO video_parts (cid, aid, idx, title, duration)
+            VALUES (?, ?, ?, ?, ?)
             """
             parts_params = [
-                (part.cid, video.aid, part.page, part.part, part.duration, part.ctime)
+                (part.cid, video.aid, part.index, part.title, part.duration)
                 for part in video.parts
             ]
             self.cursor.executemany(parts_sql, parts_params)
-
-    # TODO: add new user

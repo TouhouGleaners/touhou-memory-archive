@@ -1,9 +1,3 @@
-from pydantic import BaseModel
+from crawler.models.user import User
 
-
-class User(BaseModel):
-    mid: int
-    name: str
-    
-    class Config:
-        from_attributes = True
+__all__ = ["User"]

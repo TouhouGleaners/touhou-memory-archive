@@ -2,7 +2,8 @@ import re
 import logging
 import asyncio
 
-from shared.models.video import Video, VideoPart
+from crawler.converters import pages_dict_to_parts
+from crawler.models import Video
 
 from .database import Database
 from crawler.core.video_fetcher import BiliClient
@@ -52,7 +53,7 @@ class VideoService:
                 # view接口返回的 pages 结构与 pagelist 接口基本一致
                 if 'pages' in view_info:
                     try:
-                        video.parts = [VideoPart.model_validate(p) for p in view_info['pages']]
+                        video.parts = pages_dict_to_parts(view_info['pages'])
                     except Exception as e:
                          logger.warning(f"解析视频 {video.bvid} 分P模型失败: {e}")
                          video.parts = []
