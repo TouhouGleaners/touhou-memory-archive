@@ -3,7 +3,7 @@ import logging
 from typing import AsyncGenerator
 
 from crawler.api.bili_api import BiliAPI
-from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page
+from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page, VideoTag
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
 from crawler.converters import space_item_to_video, season_item_to_video, page_to_part
 from shared.schemas import VideoSchema, VideoPartSchema
@@ -107,8 +107,14 @@ class BiliClient:
             return [page_to_part(Page.model_validate(p)) for p in data]
         return []
 
-    async def get_video_tags(self, bvid: str) -> list[str]:
+    async def get_video_tags(self, bvid: str) -> list[VideoTag]:
         data = await self.api.get_video_tags(bvid)
-        if isinstance(data, list):
-            return [t.get('tag_name') for t in data if 'tag_name' in t]
-        return []
+        if not isinstance(data, list):
+            return []
+        tags = []
+        for t in data:
+            try:
+                tags.append(VideoTag.model_validate(t))
+            except ValueError:
+                logger.warning(f"跳过格式异常的标签: {t}")
+        return tags

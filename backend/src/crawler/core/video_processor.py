@@ -1,8 +1,7 @@
-import re
 import logging
 import asyncio
 
-from crawler.api.models import Page
+from crawler.api.models import Page, VideoTag
 from crawler.converters import pages_to_parts
 from crawler.core.database import save_video
 from crawler.core.video_fetcher import BiliClient
@@ -16,7 +15,6 @@ class VideoService:
     """封装所有视频处理相关的业务逻辑"""
     def __init__(self, client: BiliClient):
         self.client = client
-        self.tag_pattern = re.compile(r'^\$发现《.+?》\^$')
         self.touhou_keywords = {
             "东方Project", "东方project", "东方PROJECT",
             "東方Project", "東方project", "東方PROJECT",
@@ -37,7 +35,7 @@ class VideoService:
 
             results = await asyncio.gather(tags_task, info_task, return_exceptions=True)
 
-            video_tags_result = []
+            video_tags_result: list[VideoTag] = []
             if not isinstance(results[0], Exception):
                 video_tags_result = results[0]
             else:
@@ -53,12 +51,12 @@ class VideoService:
                         pages = [Page.model_validate(p) for p in view_info['pages']]
                         video.parts = pages_to_parts(pages)
                     except Exception as e:
-                         logger.warning(f"解析视频 {video.bvid} 分P模型失败: {e}")
-                         video.parts = []
+                        logger.warning(f"解析视频 {video.bvid} 分P模型失败: {e}")
+                        video.parts = []
             else:
                 logger.warning(f"获取视频 {video.bvid} 的分P信息失败: {results[1]}")
 
-            video.tags = [tag for tag in video_tags_result if not self.tag_pattern.match(tag)]
+            video.tags = [t.tag_name for t in video_tags_result if t.tag_type != "bgm"]
             video.touhou_status = self._is_touhou(video.tags)
 
             save_video(video)
