@@ -52,7 +52,7 @@ class BiliAPI:
             req_headers.update(headers)
 
         if need_wbi:
-            img, sub = await WbiSigner.get_wbi_keys()
+            img, sub = WbiSigner.get_wbi_keys()
             params = WbiSigner.enc_wbi(params, img, sub)
 
         for attempt in range(retry_times):
