@@ -16,7 +16,6 @@ class VideoService:
     """封装所有视频处理相关的业务逻辑"""
     def __init__(self, client: BiliClient):
         self.client = client
-        self.session = session
         self.tag_pattern = re.compile(r'^\$发现《.+?》\^$')
         self.touhou_keywords = {
             "东方Project", "东方project", "东方PROJECT",
