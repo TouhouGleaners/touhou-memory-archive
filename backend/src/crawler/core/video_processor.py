@@ -66,7 +66,7 @@ class VideoService:
             try:
                 video.parts = pages_to_parts(detail.pages)
             except Exception as e:
-                logger.warning(f"解析视频 {video.bvid} 分P失败: {e}")
+                logger.warning(f"解析视频 {video.bvid} 分P失败: {e}", exc_info=True)
                 video.parts = []
 
             # 标签处理：过滤 bgm 标签，然后判断是否为东方视频
