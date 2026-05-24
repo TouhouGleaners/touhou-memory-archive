@@ -2,8 +2,6 @@ import re
 import logging
 import asyncio
 
-from sqlmodel import Session
-
 from crawler.api.models import Page
 from crawler.converters import pages_to_parts
 from crawler.core.database import save_video
@@ -16,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class VideoService:
     """封装所有视频处理相关的业务逻辑"""
-    def __init__(self, client: BiliClient, session: Session):
+    def __init__(self, client: BiliClient):
         self.client = client
         self.session = session
         self.tag_pattern = re.compile(r'^\$发现《.+?》\^$')
@@ -64,7 +62,7 @@ class VideoService:
             video.tags = [tag for tag in video_tags_result if not self.tag_pattern.match(tag)]
             video.touhou_status = self._is_touhou(video.tags)
 
-            save_video(self.session, video)
+            save_video(video)
 
             logger.info(f"视频 {video.bvid} 处理并保存成功。")
 
