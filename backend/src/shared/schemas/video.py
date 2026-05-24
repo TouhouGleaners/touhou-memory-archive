@@ -1,14 +1,14 @@
 from pydantic import BaseModel, Field
 
 
-class VideoPart(BaseModel):
+class VideoPartSchema(BaseModel):
     cid: int
     index: int          # 分P序号
     title: str          # 分P标题
     duration: int       # 秒
 
 
-class Video(BaseModel):
+class VideoSchema(BaseModel):
     # 标识
     aid: int
     bvid: str
@@ -48,4 +48,4 @@ class Video(BaseModel):
     # 关联
     season_id: int | None = None
     tags: list[str] = Field(default_factory=list)
-    parts: list[VideoPart] = Field(default_factory=list)
+    parts: list[VideoPartSchema] = Field(default_factory=list)

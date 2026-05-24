@@ -2,7 +2,7 @@ from crawler.api.models import (
     VideoDetailData, VideoTag, Page,
     SpaceVideoItem, SeasonArchiveItem,
 )
-from crawler.models import Video, VideoPart
+from shared.schemas import VideoSchema, VideoPartSchema
 
 
 def video_detail_to_video(
@@ -10,9 +10,9 @@ def video_detail_to_video(
     tags: list[VideoTag],
     mid: int | None = None,
     season_id: int | None = None,
-) -> Video:
+) -> VideoSchema:
     """将详情接口响应 + 标签合并为领域模型"""
-    return Video(
+    return VideoSchema(
         aid=detail.aid,
         bvid=detail.bvid,
         mid=mid or detail.owner.mid,
@@ -40,9 +40,9 @@ def video_detail_to_video(
     )
 
 
-def space_item_to_video(item: SpaceVideoItem) -> Video:
+def space_item_to_video(item: SpaceVideoItem) -> VideoSchema:
     """将空间搜索 vlist 中的单个条目转换为领域模型"""
-    return Video(
+    return VideoSchema(
         aid=item.aid,
         bvid=item.bvid,
         mid=item.mid,
@@ -54,9 +54,9 @@ def space_item_to_video(item: SpaceVideoItem) -> Video:
     )
 
 
-def season_item_to_video(item: SeasonArchiveItem, mid: int, season_id: int) -> Video:
+def season_item_to_video(item: SeasonArchiveItem, mid: int, season_id: int) -> VideoSchema:
     """将合集 archives 中的单个条目转换为领域模型"""
-    return Video(
+    return VideoSchema(
         aid=item.aid,
         bvid=item.bvid,
         mid=mid,
@@ -69,9 +69,9 @@ def season_item_to_video(item: SeasonArchiveItem, mid: int, season_id: int) -> V
     )
 
 
-def page_to_part(page: Page) -> VideoPart:
+def page_to_part(page: Page) -> VideoPartSchema:
     """将详情接口的单个分P转换为领域模型"""
-    return VideoPart(
+    return VideoPartSchema(
         cid=page.cid,
         index=page.page,
         title=page.part,
@@ -79,7 +79,7 @@ def page_to_part(page: Page) -> VideoPart:
     )
 
 
-def pages_to_parts(pages: list[Page]) -> list[VideoPart]:
+def pages_to_parts(pages: list[Page]) -> list[VideoPartSchema]:
     """将详情接口的分P列表转换为领域模型列表"""
     return [page_to_part(p) for p in pages]
 
