@@ -109,6 +109,12 @@ class BiliClient:
 
     async def get_video_tags(self, bvid: str) -> list[VideoTag]:
         data = await self.api.get_video_tags(bvid)
-        if isinstance(data, list):
-            return [VideoTag.model_validate(t) for t in data]
-        return []
+        if not isinstance(data, list):
+            return []
+        tags = []
+        for t in data:
+            try:
+                tags.append(VideoTag.model_validate(t))
+            except Exception:
+                logger.warning(f"跳过格式异常的标签: {t}")
+        return tags
