@@ -1,10 +1,14 @@
+import time
+import logging
+import threading
+import urllib.parse
 from functools import reduce
 from hashlib import md5
-import urllib.parse
-import time
-from typing import Optional, Tuple
 
-import aiohttp
+import requests
+
+
+logger = logging.getLogger("App.System.Signer")
 
 
 class WbiSigner:
@@ -17,9 +21,11 @@ class WbiSigner:
     ]
 
     # 类变量，用于在单次运行程序时缓存密钥
-    _cached_keys: Optional[Tuple[str, str]] = None
+    _cached_keys: tuple[str, str] | None = None
     _cached_time: float = 0
     CACHE_DURATION = 24 * 60 * 60  # 缓存时长为24小时(实际情况下单次运行程序不会超过这个时间)
+
+    _lock = threading.Lock()
 
     @staticmethod
     def get_mixin_key(orig: str):
@@ -31,47 +37,61 @@ class WbiSigner:
         """为请求参数进行 wbi 签名"""
         mixin_key = WbiSigner.get_mixin_key(img_key + sub_key)
         curr_time = round(time.time())
-        params['wts'] = curr_time                                   # 添加 wts 字段
-        params = dict(sorted(params.items()))                       # 按照 key 重排参数
+
+        params_for_sign = params.copy()
+        params_for_sign['wts'] = curr_time                       # 添加 wts 字段
+        params_for_sign = dict(sorted(params_for_sign.items()))  # 按照 key 重排参数
         # 过滤 value 中的 "!'()*" 字符
-        params = {
+        params_for_sign_filtered = {
             k : ''.join(filter(lambda chr: chr not in "!'()*", str(v)))
-            for k, v 
-            in params.items()
+            for k, v
+            in params_for_sign.items()
         }
-        query = urllib.parse.urlencode(params)                      # 序列化参数
+
+        query = urllib.parse.urlencode(params_for_sign_filtered)    # 序列化参数
         wbi_sign = md5((query + mixin_key).encode()).hexdigest()    # 计算 w_rid
+
         params['w_rid'] = wbi_sign
+        params['wts'] = curr_time
+
         return params
 
     @classmethod
-    async def get_wbi_keys(cls) -> tuple[str, str]:
-        """获取最新的 img_key 和 sub_key，带缓存机制"""
-        current_time = time.time()
-        
-        # 如果缓存存在且未过期，直接返回缓存的键值
-        if (cls._cached_keys is not None and 
-            current_time - cls._cached_time < cls.CACHE_DURATION):
+    def get_wbi_keys(cls) -> tuple[str, str]:
+        """获取最新的 img_key 和 sub_key"""
+        # 锁外第一次检查
+        current_now = time.time()
+        if (cls._cached_keys is not None
+            and current_now - cls._cached_time < cls.CACHE_DURATION):
             return cls._cached_keys
 
-        # 获取新的键值
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
-            'Referer': 'https://www.bilibili.com/'
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get('https://api.bilibili.com/x/web-interface/nav', headers=headers) as resp:
+        with cls._lock:
+            now_inside_lock = time.time()
+            # 锁内第二次检查
+            if (cls._cached_keys is not None
+                and now_inside_lock - cls._cached_time < cls.CACHE_DURATION):
+                return cls._cached_keys
+
+            # 获取新的键值
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
+                'Referer': 'https://www.bilibili.com/'
+            }
+            try:
+                resp = requests.get('https://api.bilibili.com/x/web-interface/nav', headers=headers, timeout=10)
                 resp.raise_for_status()
-                json_content = await resp.json()
+                json_content = resp.json()
+                img_url: str = json_content['data']['wbi_img']['img_url']
+                sub_url: str = json_content['data']['wbi_img']['sub_url']
+                img_key = img_url.rsplit('/', 1)[1].split('.')[0]
+                sub_key = sub_url.rsplit('/', 1)[1].split('.')[0]
 
-        img_url: str = json_content['data']['wbi_img']['img_url']
-        sub_url: str = json_content['data']['wbi_img']['sub_url']
-        img_key = img_url.rsplit('/', 1)[1].split('.')[0]
-        sub_key = sub_url.rsplit('/', 1)[1].split('.')[0]
+                # 更新缓存
+                cls._cached_keys = (img_key, sub_key)
+                cls._cached_time = now_inside_lock
 
-        # 更新缓存
-        cls._cached_keys = (img_key, sub_key)
-        cls._cached_time = current_time
-        
-        return cls._cached_keys
+                logger.debug("WBI 密钥获取成功并已缓存。")
+                return cls._cached_keys
+            except (requests.RequestException, ValueError) as e:
+                logger.critical(f"获取B站签名密钥失败，请检查网络连接或稍后再试。错误: {e}")
+                raise RuntimeError(f"获取B站签名密钥失败，请检查网络连接或稍后再试。错误: {e}") from e
