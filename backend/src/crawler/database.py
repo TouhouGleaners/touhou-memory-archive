@@ -1,9 +1,8 @@
 from sqlmodel import Session, select, delete, col
 
-from shared.database import engine
-from shared.models import Video, VideoPart
-from shared.models.user import User
-from shared.schemas import VideoSchema
+from domain.database import engine
+from domain.models import Video, VideoPart, User
+from domain.schemas import VideoSchema
 
 
 def get_all_user_mids() -> list[int]:

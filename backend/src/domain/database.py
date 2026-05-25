@@ -1,8 +1,10 @@
+import os
+from pathlib import Path
+
 from sqlmodel import SQLModel, Session, create_engine
 
-from core.config import DB_PATH
-
-
+_BACKEND_DIR = Path(__file__).parent.parent.parent
+DB_PATH = Path(os.getenv("DB_PATH", _BACKEND_DIR / "bili_videos.db"))
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, echo=False)

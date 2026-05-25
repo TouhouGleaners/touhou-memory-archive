@@ -1,8 +1,9 @@
+"""B站 API 响应模型：/x/web-interface/view"""
 from pydantic import BaseModel, Field
 
 
 class Page(BaseModel):
-    """视频分P信息，对应 /x/web-interface/view → data.pages[]"""
+    """data.pages[]"""
     cid: int
     page: int
     part: str
@@ -10,13 +11,13 @@ class Page(BaseModel):
 
 
 class Owner(BaseModel):
-    """视频UP主信息，对应 /x/web-interface/view → data.owner"""
+    """data.owner"""
     mid: int
     name: str
 
 
 class VideoStat(BaseModel):
-    """视频统计数据，对应 /x/web-interface/view → data.stat"""
+    """data.stat"""
     view: int = 0
     danmaku: int = 0
     reply: int = 0
@@ -27,7 +28,7 @@ class VideoStat(BaseModel):
 
 
 class VideoDetailData(BaseModel):
-    """对应 /x/web-interface/view 返回的 data 对象"""
+    """data 对象"""
     aid: int
     bvid: str
     title: str

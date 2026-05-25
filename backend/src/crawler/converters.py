@@ -2,7 +2,7 @@ from crawler.api.models import (
     VideoDetailData, VideoTag, Page,
     SpaceVideoItem, SeasonArchiveItem,
 )
-from shared.schemas import VideoSchema, VideoPartSchema
+from domain.schemas import VideoSchema, VideoPartSchema
 
 
 def enrich_video_from_detail(

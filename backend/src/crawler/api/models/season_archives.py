@@ -1,8 +1,9 @@
+"""B站 API 响应模型：/x/polymer/web-space/seasons_archives_list"""
 from pydantic import BaseModel, Field
 
 
 class SeasonArchiveItem(BaseModel):
-    """对应 seasons_archives_list → data.archives[] 中的单个元素"""
+    """data.archives[]"""
     aid: int
     bvid: str
     ctime: int
@@ -13,7 +14,6 @@ class SeasonArchiveItem(BaseModel):
 
 
 class SeasonMeta(BaseModel):
-    """对应 seasons_archives_list → data.meta"""
     season_id: int
     name: str = ""
     mid: int = 0
@@ -21,14 +21,12 @@ class SeasonMeta(BaseModel):
 
 
 class SeasonPageInfo(BaseModel):
-    """对应 seasons_archives_list → data.page"""
     page_num: int
     page_size: int
     total: int
 
 
 class SeasonArchivesData(BaseModel):
-    """对应 seasons_archives_list → data"""
     archives: list[SeasonArchiveItem] = Field(default_factory=list)
     meta: SeasonMeta | None = None
     page: SeasonPageInfo | None = None
