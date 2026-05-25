@@ -1,10 +1,10 @@
 import logging
 import asyncio
 
-from crawler.api.models import VideoTag, VideoDetailData
+from crawler.api.bili_api import BiliAPI
+from crawler.api.models import VideoTag, VideoDetailData, Page
 from crawler.converters import pages_to_parts
 from crawler.core.database import save_video
-from crawler.core.video_fetcher import BiliClient
 from shared.schemas import VideoSchema
 
 
@@ -12,18 +12,39 @@ logger = logging.getLogger(__name__)
 
 
 class VideoService:
-    """封装所有视频处理相关的业务逻辑"""
-    def __init__(self, client: BiliClient):
-        self.client = client
-        self.touhou_keywords = {
-            "东方Project", "东方project", "东方PROJECT",
-            "東方Project", "東方project", "東方PROJECT",
-            "Touhou", "東方", "车万", "ZUN", "Zun", "zun"
-        }
+    """负责单个视频的处理：数据获取、业务逻辑、持久化"""
 
-    def _is_touhou(self, tags: list[str]) -> int:
-        """自动检测是否为东方视频 是:1 否:2"""
-        return 1 if any(keyword in tag for tag in tags for keyword in self.touhou_keywords) else 2
+    TOUHOU_KEYWORDS = {
+        "东方Project", "东方project", "东方PROJECT",
+        "東方Project", "東方project", "東方PROJECT",
+        "Touhou", "東方", "车万", "ZUN", "Zun", "zun"
+    }
+
+    def __init__(self, api: BiliAPI):
+        self.api = api
+
+    async def _fetch_video_detail(self, bvid: str) -> VideoDetailData:
+        """获取视频详情，失败时直接抛异常"""
+        raw = await self.api.get_video_detail(bvid)
+        return VideoDetailData.model_validate(raw)
+
+    async def _fetch_video_tags(self, bvid: str) -> list[VideoTag]:
+        """获取视频标签，逐条容错"""
+        data = await self.api.get_video_tags(bvid)
+        if not isinstance(data, list):
+            return []
+        tags = []
+        for t in data:
+            try:
+                tags.append(VideoTag.model_validate(t))
+            except ValueError:
+                logger.warning(f"跳过格式异常的标签: {t}")
+        return tags
+
+    @staticmethod
+    def _is_touhou(tags: list[str]) -> int:
+        """根据标签关键词判断是否为东方视频。是:1 否:2"""
+        return 1 if any(kw in tag for tag in tags for kw in VideoService.TOUHOU_KEYWORDS) else 2
 
     async def process_video(self, video: VideoSchema, semaphore: asyncio.Semaphore):
         """
@@ -40,11 +61,10 @@ class VideoService:
         5. 保存到数据库
         """
         try:
-            # semaphore 包住整个 gather，确保并发 I/O 真正受限
             async with semaphore:
                 tags, detail = await asyncio.gather(
-                    self.client.get_video_tags(video.bvid),
-                    self.client.get_video_info(video.bvid),
+                    self._fetch_video_tags(video.bvid),
+                    self._fetch_video_detail(video.bvid),
                 )
 
             # 用详情数据补全 video schema
@@ -62,7 +82,6 @@ class VideoService:
             video.share_count = detail.stat.share
             video.like_count = detail.stat.like
 
-            # 分P解析带防御性处理
             try:
                 video.parts = pages_to_parts(detail.pages)
             except Exception as e:
