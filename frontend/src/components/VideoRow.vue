@@ -25,7 +25,7 @@
         {{ highlightedUploader[0] }} <span v-if="highlightedUploader[1]" class="highlight"> {{ highlightedUploader[1] }} </span> {{ highlightedUploader[2] }}
       </span>
     </td>
-    <td>{{ video.created ? formatDate(video.created) : '未知日期' }}</td>
+    <td>{{ video.published_at ? formatDate(video.published_at) : '未知日期' }}</td>
     <td>
       <div :class="['status', `status-${video.touhou_status}`]">
         {{ getStatusText(video.touhou_status) }}
@@ -37,10 +37,9 @@
           无分P信息
         </div>
         <div v-else-if="video.parts.length === 1" class="part-item">
-          <div class="part-title">P1: {{ video.parts[0].part }}</div>
+          <div class="part-title">P1: {{ video.parts[0].title }}</div>
           <div class="part-meta">
             <span>时长: {{ formatTime(video.parts[0].duration) }}</span>
-            <span>创建: {{ formatDate(video.parts[0].ctime) }}</span>
           </div>
         </div>
         <div v-else class="parts-multi">
@@ -56,15 +55,14 @@
             </div>
           </div>
           <div class="parts-list fade-in" v-show="partsExpanded">
-            <div 
-              class="part-item" 
-              v-for="part in video.parts" 
-              :key="part.page"
+            <div
+              class="part-item"
+              v-for="part in video.parts"
+              :key="part.index"
             >
-              <div class="part-title">P{{ part.page }}: {{ part.part }}</div>
+              <div class="part-title">P{{ part.index }}: {{ part.title }}</div>
               <div class="part-meta">
                 <span>时长: {{ formatTime(part.duration) }}</span>
-                <span>创建: {{ formatDate(part.ctime) }}</span>
               </div>
             </div>
           </div>
