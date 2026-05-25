@@ -65,7 +65,7 @@ export default {
 
     // 检查是否有tooltip内容
     const hasTooltipContent = computed(() => {
-      return props.video.cover_url || props.video.description
+      return (!imageError.value && props.video.cover_url) || props.video.description
     })
 
     // 检测应该显示在左侧还是右侧
