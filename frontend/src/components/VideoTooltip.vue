@@ -16,9 +16,9 @@
     >
       <div class="tooltip-content">
         <!-- 视频封面 -->
-        <div class="video-cover" v-if="video.pic && !imageError">
-          <img 
-            :src="video.pic" 
+        <div class="video-cover" v-if="video.cover_url && !imageError">
+          <img
+            :src="video.cover_url"
             :alt="video.title || '视频封面'"
             @error="handleImageError"
             referrerpolicy="no-referrer"
@@ -65,7 +65,7 @@ export default {
 
     // 检查是否有tooltip内容
     const hasTooltipContent = computed(() => {
-      return props.video.pic || props.video.description
+      return props.video.cover_url || props.video.description
     })
 
     // 检测应该显示在左侧还是右侧
