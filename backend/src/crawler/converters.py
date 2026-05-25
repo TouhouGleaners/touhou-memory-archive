@@ -5,39 +5,29 @@ from crawler.api.models import (
 from shared.schemas import VideoSchema, VideoPartSchema
 
 
-def video_detail_to_video(
+def enrich_video_from_detail(
+    video: VideoSchema,
     detail: VideoDetailData,
     tags: list[VideoTag],
-    mid: int | None = None,
-    season_id: int | None = None,
-) -> VideoSchema:
-    """将详情接口响应 + 标签合并为领域模型"""
-    return VideoSchema(
-        aid=detail.aid,
-        bvid=detail.bvid,
-        mid=mid or detail.owner.mid,
-        uploader_name=detail.owner.name,
-        title=detail.title,
-        description=detail.desc,
-        cover_url=detail.pic,
-        published_at=detail.pubdate,
-        created_at=detail.ctime,
-        duration=detail.duration,
-        category_id=detail.tid,
-        category_name=detail.tname,
-        copyright=detail.copyright,
-        state=detail.state,
-        season_id=season_id,
-        view_count=detail.stat.view,
-        danmaku_count=detail.stat.danmaku,
-        reply_count=detail.stat.reply,
-        favorite_count=detail.stat.favorite,
-        coin_count=detail.stat.coin,
-        share_count=detail.stat.share,
-        like_count=detail.stat.like,
-        tags=[t.tag_name for t in tags if t.tag_type != "bgm"],
-        parts=[page_to_part(p) for p in detail.pages],
-    )
+) -> None:
+    """用详情接口数据补全已有的 schema（原地修改）"""
+    video.description = detail.desc
+    video.parts = pages_to_parts(detail.pages)
+
+    video.category_id = detail.tid
+    video.category_name = detail.tname
+    video.copyright = detail.copyright
+    video.state = detail.state
+
+    video.view_count = detail.stat.view
+    video.danmaku_count = detail.stat.danmaku
+    video.reply_count = detail.stat.reply
+    video.favorite_count = detail.stat.favorite
+    video.coin_count = detail.stat.coin
+    video.share_count = detail.stat.share
+    video.like_count = detail.stat.like
+
+    video.tags = [t.tag_name for t in tags if t.tag_type != "bgm"]
 
 
 def space_item_to_video(item: SpaceVideoItem) -> VideoSchema:
@@ -82,8 +72,3 @@ def page_to_part(page: Page) -> VideoPartSchema:
 def pages_to_parts(pages: list[Page]) -> list[VideoPartSchema]:
     """将详情接口的分P列表转换为领域模型列表"""
     return [page_to_part(p) for p in pages]
-
-
-def extract_season_ids(items: list[SpaceVideoItem]) -> set[int]:
-    """从空间搜索结果中提取合集 ID（排除 0）"""
-    return {item.season_id for item in items if item.season_id != 0}

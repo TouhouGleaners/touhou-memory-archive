@@ -7,7 +7,7 @@ from shared.database import init_db
 from shared.schemas import VideoSchema
 
 from crawler.api.bili_api import BiliAPI
-from crawler.core.video_fetcher import VideoDiscovery
+from crawler.core.video_discovery import VideoDiscovery
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from crawler.core.database import get_all_user_mids
 from crawler.core.delay_manager import DelayManager

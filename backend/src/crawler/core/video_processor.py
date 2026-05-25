@@ -2,8 +2,8 @@ import logging
 import asyncio
 
 from crawler.api.bili_api import BiliAPI
-from crawler.api.models import VideoTag, VideoDetailData, Page
-from crawler.converters import pages_to_parts
+from crawler.api.models import VideoTag, VideoDetailData
+from crawler.converters import enrich_video_from_detail
 from crawler.core.database import save_video
 from shared.schemas import VideoSchema
 
@@ -67,29 +67,10 @@ class VideoService:
                     self._fetch_video_detail(video.bvid),
                 )
 
-            # 用详情数据补全 video schema
-            video.description = detail.desc
-            video.category_id = detail.tid
-            video.category_name = detail.tname
-            video.copyright = detail.copyright
-            video.state = detail.state
+            # 用详情数据补全 video schema（字段映射逻辑在 converters 中）
+            enrich_video_from_detail(video, detail, tags)
 
-            video.view_count = detail.stat.view
-            video.danmaku_count = detail.stat.danmaku
-            video.reply_count = detail.stat.reply
-            video.favorite_count = detail.stat.favorite
-            video.coin_count = detail.stat.coin
-            video.share_count = detail.stat.share
-            video.like_count = detail.stat.like
-
-            try:
-                video.parts = pages_to_parts(detail.pages)
-            except Exception as e:
-                logger.warning(f"解析视频 {video.bvid} 分P失败: {e}", exc_info=True)
-                video.parts = []
-
-            # 标签处理：过滤 bgm 标签，然后判断是否为东方视频
-            video.tags = [t.tag_name for t in tags if t.tag_type != "bgm"]
+            # 判断是否为东方视频
             video.touhou_status = self._is_touhou(video.tags)
 
             save_video(video)
