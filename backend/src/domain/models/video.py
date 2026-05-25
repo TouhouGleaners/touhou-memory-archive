@@ -4,14 +4,7 @@ from sqlalchemy.orm import Mapped
 from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
-    from domain.schemas import VideoSchema
-
-
-class User(SQLModel, table=True):
-    __tablename__: str = "users"
-
-    mid: int = Field(primary_key=True)
-    name: str
+    from domain.schemas.video import VideoSchema
 
 
 class VideoPart(SQLModel, table=True):
@@ -90,7 +83,7 @@ class Video(SQLModel, table=True):
 
     def to_schema(self, uploader_name: str = "", parts: list | None = None):
         """表模型 → Pydantic schema"""
-        from domain.schemas import VideoSchema
+        from domain.schemas.video import VideoSchema
 
         return VideoSchema(
             aid=self.aid,
