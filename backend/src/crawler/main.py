@@ -7,7 +7,7 @@ from shared.database import init_db
 from shared.schemas import VideoSchema
 
 from crawler.api.bili_api import BiliAPI
-from crawler.core.video_fetcher import BiliClient
+from crawler.core.video_fetcher import VideoDiscovery
 from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from crawler.core.database import get_all_user_mids
 from crawler.core.delay_manager import DelayManager
@@ -49,8 +49,8 @@ async def main():
 
     async with aiohttp.ClientSession() as http_session:
         bili_api = BiliAPI(http_session)
-        bili_client = BiliClient(bili_api)
-        video_service = VideoService(bili_client)
+        video_discovery = VideoDiscovery(bili_api)
+        video_service = VideoService(bili_api)
 
         for user in users:
             logger.info(f"--- 开始处理用户 {user} ---")
@@ -59,7 +59,7 @@ async def main():
 
             async def run_producer():
                 try:
-                    async for video in bili_client.get_user_all_videos(user, delay_manager):
+                    async for video in video_discovery.get_user_all_videos(user, delay_manager):
                         await video_queue.put(video)
                 except asyncio.CancelledError:
                     logger.info(f"用户 {user} 生产任务被取消")

@@ -3,10 +3,10 @@ import logging
 from typing import AsyncGenerator
 
 from crawler.api.bili_api import BiliAPI
-from crawler.api.models import SpaceVideoItem, SeasonArchiveItem, Page, VideoTag, VideoDetailData
+from crawler.api.models import SpaceVideoItem, SeasonArchiveItem
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
-from crawler.converters import space_item_to_video, season_item_to_video, page_to_part
-from shared.schemas import VideoSchema, VideoPartSchema
+from crawler.converters import space_item_to_video, season_item_to_video
+from shared.schemas import VideoSchema
 
 from .delay_manager import DelayManager
 
@@ -14,7 +14,9 @@ from .delay_manager import DelayManager
 logger = logging.getLogger(__name__)
 
 
-class BiliClient:
+class VideoDiscovery:
+    """负责视频列表发现：用户空间分页、合集展开"""
+
     def __init__(self, api: BiliAPI):
         self.api = api
 
@@ -25,7 +27,10 @@ class BiliClient:
         page_size: int = 50
     ) -> AsyncGenerator[VideoSchema, None]:
         """
-        业务逻辑：循环分页获取用户所有视频，并自动展开合集
+        分页获取用户所有视频，自动展开合集。
+
+        每页之间有 PRODUCER_PAGE_DELAY_SECONDS 的延迟以规避风控。
+        第一页会更新 delay_manager 的视频总数，用于后续用户切换延迟计算。
         """
         page = 1
         processed_seasons = set()
@@ -71,7 +76,7 @@ class BiliClient:
             await asyncio.sleep(PRODUCER_PAGE_DELAY_SECONDS)
 
     async def _fetch_season(self, mid: int, season_id: int, delay_manager: DelayManager) -> AsyncGenerator[VideoSchema, None]:
-        """内部递归：获取合集"""
+        """获取合集内所有视频，分页处理"""
         page = 1
 
         while True:
@@ -97,26 +102,3 @@ class BiliClient:
             page += 1
             sleep_time = delay_manager.get_request_delay()
             await asyncio.sleep(sleep_time)
-
-    async def get_video_info(self, bvid: str) -> VideoDetailData:
-        """获取视频详情，失败时直接抛异常"""
-        raw = await self.api.get_video_detail(bvid)
-        return VideoDetailData.model_validate(raw)
-
-    async def get_video_parts(self, bvid: str) -> list[VideoPartSchema]:
-        data = await self.api.get_video_parts(bvid)
-        if isinstance(data, list):
-            return [page_to_part(Page.model_validate(p)) for p in data]
-        return []
-
-    async def get_video_tags(self, bvid: str) -> list[VideoTag]:
-        data = await self.api.get_video_tags(bvid)
-        if not isinstance(data, list):
-            return []
-        tags = []
-        for t in data:
-            try:
-                tags.append(VideoTag.model_validate(t))
-            except ValueError:
-                logger.warning(f"跳过格式异常的标签: {t}")
-        return tags
