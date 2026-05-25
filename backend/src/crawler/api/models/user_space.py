@@ -25,27 +25,3 @@ class SpacePageInfo(BaseModel):
 class UserSpaceData(BaseModel):
     list: SpaceList
     page: SpacePageInfo | None = None
-
-
-class AppSpaceMeta(BaseModel):
-    id: int | None = None
-    title: str = ""
-
-
-class AppSpaceItem(BaseModel):
-    param: str
-    bvid: str
-    title: str
-    ctime: int
-    cover: str = ""
-    author: str = ""
-    duration: int = 0
-    play: int = 0
-    danmaku: int = 0
-    meta: AppSpaceMeta | None = None
-
-
-class AppSpaceData(BaseModel):
-    item: list[AppSpaceItem] = Field(default_factory=list)
-    has_next: bool = False
-    count: int = 0
