@@ -4,8 +4,8 @@ import asyncio
 from crawler.api.bili_api import BiliAPI
 from crawler.api.models import VideoTag, VideoDetailData
 from crawler.converters import enrich_video_from_detail
-from crawler.core.database import save_video
-from shared.schemas import VideoSchema
+from crawler.database import save_video
+from domain.schemas import VideoSchema
 
 
 logger = logging.getLogger(__name__)

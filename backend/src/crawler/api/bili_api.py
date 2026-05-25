@@ -5,7 +5,7 @@ from typing import Any
 import aiohttp
 
 from crawler.config import HEADERS
-from crawler.core.delay_manager import DelayManager
+from crawler.rate_limit import DelayManager
 
 from .wbi_signer import WbiSigner
 

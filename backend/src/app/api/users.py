@@ -3,10 +3,10 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlmodel import Session
 
-from shared.database import get_session
-from shared.schemas.user import UserSchema
+from domain.database import get_session
+from domain.schemas import UserSchema
 
-from ...crud import crud_user
+from ..crud import get_user_by_mid
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def read_user(
 ):
     """通过用户 mid 获取单个 UP 主信息"""
     try:
-        user = crud_user.get_user_by_mid(session, mid)
+        user = get_user_by_mid(session, mid)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
         return user

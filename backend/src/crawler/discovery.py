@@ -6,9 +6,9 @@ from crawler.api.bili_api import BiliAPI
 from crawler.api.models import SpaceVideoItem, SeasonArchiveItem
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
 from crawler.converters import space_item_to_video, season_item_to_video
-from shared.schemas import VideoSchema
+from domain.schemas import VideoSchema
 
-from .delay_manager import DelayManager
+from .rate_limit import DelayManager
 
 
 logger = logging.getLogger(__name__)

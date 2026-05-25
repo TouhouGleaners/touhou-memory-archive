@@ -49,3 +49,8 @@ class VideoSchema(BaseModel):
     season_id: int | None = None
     tags: list[str] = Field(default_factory=list)
     parts: list[VideoPartSchema] = Field(default_factory=list)
+
+
+class UserSchema(BaseModel):
+    mid: int
+    name: str

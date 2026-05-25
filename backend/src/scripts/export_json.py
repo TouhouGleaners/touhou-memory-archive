@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from shared.database import get_session
-from app.crud.crud_video import get_videos
+from domain.database import get_session
+from app.crud import get_videos
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]

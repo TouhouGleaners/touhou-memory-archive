@@ -1,8 +1,7 @@
 from sqlmodel import Session, select, col
 
-from shared.models import Video, VideoPart
-from shared.models.user import User
-from shared.schemas import VideoSchema, VideoPartSchema
+from domain.models import Video, VideoPart, User
+from domain.schemas import VideoSchema, VideoPartSchema, UserSchema
 
 
 def get_videos(session: Session, is_touhou: bool = False) -> list[VideoSchema]:
@@ -37,3 +36,11 @@ def get_videos(session: Session, is_touhou: bool = False) -> list[VideoSchema]:
         videos.append(video_model.to_schema(uploader_name=uploader_name or "", parts=part_schemas))
 
     return videos
+
+
+def get_user_by_mid(session: Session, mid: int) -> UserSchema | None:
+    """通过 mid 获取用户"""
+    user = session.get(User, mid)
+    if user is None:
+        return None
+    return UserSchema(mid=user.mid, name=user.name)
