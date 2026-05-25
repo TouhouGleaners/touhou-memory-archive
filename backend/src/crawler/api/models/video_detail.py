@@ -1,7 +1,9 @@
+"""B站 API 响应模型：/x/web-interface/view"""
 from pydantic import BaseModel, Field
 
 
 class Page(BaseModel):
+    """data.pages[]"""
     cid: int
     page: int
     part: str
@@ -9,11 +11,13 @@ class Page(BaseModel):
 
 
 class Owner(BaseModel):
+    """data.owner"""
     mid: int
     name: str
 
 
 class VideoStat(BaseModel):
+    """data.stat"""
     view: int = 0
     danmaku: int = 0
     reply: int = 0
@@ -24,6 +28,7 @@ class VideoStat(BaseModel):
 
 
 class VideoDetailData(BaseModel):
+    """data 对象"""
     aid: int
     bvid: str
     title: str

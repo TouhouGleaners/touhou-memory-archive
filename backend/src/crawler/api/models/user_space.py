@@ -1,7 +1,9 @@
+"""B站 API 响应模型：/x/space/wbi/arc/search"""
 from pydantic import BaseModel, Field
 
 
 class SpaceVideoItem(BaseModel):
+    """data.list.vlist[]"""
     aid: int
     bvid: str
     mid: int

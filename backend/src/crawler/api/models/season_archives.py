@@ -1,7 +1,9 @@
+"""B站 API 响应模型：/x/polymer/web-space/seasons_archives_list"""
 from pydantic import BaseModel, Field
 
 
 class SeasonArchiveItem(BaseModel):
+    """data.archives[]"""
     aid: int
     bvid: str
     ctime: int
