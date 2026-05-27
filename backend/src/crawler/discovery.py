@@ -5,13 +5,39 @@ from typing import AsyncGenerator
 from crawler.api.bili_api import BiliAPI
 from crawler.api.models import SpaceVideoItem, SeasonArchiveItem
 from crawler.config import PRODUCER_PAGE_DELAY_SECONDS
-from crawler.converters import space_item_to_video, season_item_to_video
 from domain.schemas import VideoSchema
 
 from .rate_limit import DelayManager
 
 
 logger = logging.getLogger(__name__)
+
+
+def _space_item_to_video(item: SpaceVideoItem) -> VideoSchema:
+    return VideoSchema(
+        aid=item.aid,
+        bvid=item.bvid,
+        mid=item.mid,
+        title=item.title,
+        description=item.description,
+        cover_url=item.pic,
+        published_at=item.created,
+        season_id=item.season_id or None,
+    )
+
+
+def _season_item_to_video(item: SeasonArchiveItem, mid: int, season_id: int) -> VideoSchema:
+    return VideoSchema(
+        aid=item.aid,
+        bvid=item.bvid,
+        mid=mid,
+        title=item.title,
+        cover_url=item.pic,
+        published_at=item.pubdate,
+        created_at=item.ctime,
+        duration=item.duration,
+        season_id=season_id,
+    )
 
 
 class VideoDiscovery:
@@ -57,7 +83,7 @@ class VideoDiscovery:
             for v_data in vlist:
                 try:
                     item = SpaceVideoItem.model_validate(v_data)
-                    video = space_item_to_video(item)
+                    video = _space_item_to_video(item)
                 except Exception:
                     continue
 
@@ -92,7 +118,7 @@ class VideoDiscovery:
             for arc in archives:
                 try:
                     item = SeasonArchiveItem.model_validate(arc)
-                    yield season_item_to_video(item, mid, season_id)
+                    yield _season_item_to_video(item, mid, season_id)
                 except Exception:
                     continue
 
