@@ -36,7 +36,7 @@ async def process_video_worker(
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.error(f"处理视频 {partial.bvid} 失败: {e}")
+            logger.error(f"处理视频 {partial.bvid} 失败: {e}", exc_info=True)
         finally:
             queue.task_done()
 
