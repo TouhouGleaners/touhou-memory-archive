@@ -27,12 +27,14 @@ async def process_video_worker(
     """消费者 Worker：从队列取 PartialVideo，走 enrich → transform → load 流程。"""
     while True:
         partial = await queue.get()
-        if partial is None:
-            break
         try:
+            if partial is None:
+                break
             enriched = await enricher.enrich(partial, semaphore)
             video = transform(enriched)
             load(video)
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             logger.error(f"处理视频 {partial.bvid} 失败: {e}")
         finally:

@@ -11,16 +11,14 @@ _TOUHOU_KEYWORDS = {
 
 
 def transform(enriched: EnrichedVideo) -> VideoSchema:
-    """清洗 + 业务逻辑，产出最终 VideoSchema。"""
-    video = enriched.video
-
+    """清洗 + 业务逻辑，返回新的 VideoSchema 实例（不修改输入）。"""
     # 过滤 bgm 标签，只保留 tag_name
-    video.tags = [t.tag_name for t in enriched.raw_tags if t.tag_type != "bgm"]
+    tags = [t.tag_name for t in enriched.raw_tags if t.tag_type != "bgm"]
 
-    # 判断是否为东方视频
-    video.touhou_status = _is_touhou(video.tags)
-
-    return video
+    return enriched.video.model_copy(update={
+        "tags": tags,
+        "touhou_status": _is_touhou(tags),
+    })
 
 
 def _is_touhou(tags: list[str]) -> int:
