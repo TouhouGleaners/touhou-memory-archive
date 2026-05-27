@@ -4,14 +4,16 @@ import logging
 import aiohttp
 
 from domain.database import init_db
-from domain.schemas import VideoSchema
 
 from crawler.api.bili_api import BiliAPI
+from crawler.config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
 from crawler.discovery import VideoDiscovery
-from .config import MAX_CONCURRENCY, MAX_QUEUE_SIZE
-from crawler.database import get_all_user_mids
+from crawler.enricher import Enricher
+from crawler.extractor import Extractor
+from crawler.loader import load
 from crawler.rate_limit import DelayManager
-from crawler.processor import VideoService
+from crawler.transformer import transform
+from crawler.database import get_all_user_mids
 
 
 logger = logging.getLogger(__name__)
@@ -19,18 +21,22 @@ logger = logging.getLogger(__name__)
 
 async def process_video_worker(
     queue: asyncio.Queue,
-    service: VideoService,
-    semaphore: asyncio.Semaphore
+    enricher: Enricher,
+    semaphore: asyncio.Semaphore,
 ):
-    """消费者 Worker: 从队列中获取视频，并委托给 Service 进行处理。"""
+    """消费者 Worker：从队列取 PartialVideo，走 enrich → transform → load 流程。"""
     while True:
-        video: VideoSchema = await queue.get()
-        if video is None:
-            break
+        partial = await queue.get()
         try:
-            await service.process_video(video, semaphore)
+            if partial is None:
+                break
+            enriched = await enricher.enrich(partial, semaphore)
+            video = transform(enriched)
+            load(video)
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
-            pass
+            logger.error(f"处理视频 {partial.bvid} 失败: {e}", exc_info=True)
         finally:
             queue.task_done()
 
@@ -49,8 +55,9 @@ async def main():
 
     async with aiohttp.ClientSession() as http_session:
         bili_api = BiliAPI(http_session)
-        video_discovery = VideoDiscovery(bili_api)
-        video_service = VideoService(bili_api)
+        discovery = VideoDiscovery(bili_api)
+        extractor = Extractor(discovery)
+        enricher = Enricher(bili_api)
 
         for user in users:
             logger.info(f"--- 开始处理用户 {user} ---")
@@ -59,19 +66,18 @@ async def main():
 
             async def run_producer():
                 try:
-                    async for video in video_discovery.get_user_all_videos(user, delay_manager):
-                        await video_queue.put(video)
+                    async for partial in extractor.extract_user_videos(user, delay_manager):
+                        await video_queue.put(partial)
                 except asyncio.CancelledError:
-                    logger.info(f"用户 {user} 生产任务被取消")
                     raise
                 except Exception as e:
-                    logger.critical(f"用户 {user} 任务中断: {e}")
+                    logger.critical(f"用户 {user} 提取阶段中断: {e}")
 
             p_task = asyncio.create_task(run_producer())
 
             consumer_tasks = [
                 asyncio.create_task(
-                    process_video_worker(video_queue, video_service, semaphore)
+                    process_video_worker(video_queue, enricher, semaphore)
                 )
                 for _ in range(MAX_CONCURRENCY)
             ]
