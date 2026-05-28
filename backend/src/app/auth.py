@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
@@ -7,6 +6,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 
+from app.config import SECRET_KEY
 from domain.database import get_session
 from domain.models.admin import Admin, AdminRole
 
@@ -29,7 +29,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, os.environ["SECRET_KEY"], algorithm=ALGORITHM)
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 async def get_current_admin(
@@ -42,7 +42,7 @@ async def get_current_admin(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, os.environ["SECRET_KEY"], algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         admin_id: str | None = payload.get("sub")
         if admin_id is None:
             raise credentials_exception

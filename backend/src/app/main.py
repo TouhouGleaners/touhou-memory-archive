@@ -1,18 +1,14 @@
 import logging
 import os
-from pathlib import Path
-
-from dotenv import load_dotenv
-
-# 加载 backend/.env
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from .api import videos, users, auth
 from .auth import hash_password
+from .config import SECRET_KEY  # noqa: F401 — 确保启动时校验
 from domain.database import engine, init_db
 from domain.models.admin import Admin, AdminRole
 
@@ -48,11 +44,6 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 def on_startup():
     init_db()
 
-    # 启动时快速校验 SECRET_KEY
-    if not os.getenv("SECRET_KEY"):
-        raise RuntimeError("SECRET_KEY 环境变量未设置，请在 .env 中配置")
-
-    # 按用户名检查初始管理员是否已存在，不存在则创建
     admin_username = os.getenv("ADMIN_USERNAME")
     admin_password = os.getenv("ADMIN_PASSWORD")
     if not admin_username or not admin_password:
@@ -69,8 +60,11 @@ def on_startup():
             role=AdminRole.SUPERADMIN,
         )
         session.add(admin)
-        session.commit()
-        logger.info(f"已创建初始 superadmin: {admin_username}")
+        try:
+            session.commit()
+            logger.info(f"已创建初始 superadmin: {admin_username}")
+        except IntegrityError:
+            session.rollback()
 
 
 @app.get("/")

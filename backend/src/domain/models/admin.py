@@ -13,6 +13,6 @@ class Admin(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     hashed_password: str
-    role: int = Field(default=AdminRole.ADMIN)
+    role: AdminRole = Field(default=AdminRole.ADMIN)
     is_active: bool = Field(default=True)
     created_at: int = Field(default_factory=lambda: int(time.time()))
