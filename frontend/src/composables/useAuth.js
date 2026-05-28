@@ -1,15 +1,15 @@
 import { reactive, computed } from 'vue'
-import { apiGet, apiPostForm, AuthenticationError } from '../api/client.js'
+import { apiGet, apiPostForm, AuthenticationError, TOKEN_KEY } from '../api/client.js'
 
 const state = reactive({
-  token: localStorage.getItem('token') || null,
+  token: localStorage.getItem(TOKEN_KEY) || null,
   user: null,
 })
 
 function clearAuth() {
   state.token = null
   state.user = null
-  localStorage.removeItem('token')
+  localStorage.removeItem(TOKEN_KEY)
 }
 
 export function useAuth() {
@@ -22,7 +22,7 @@ export function useAuth() {
 
     const data = await apiPostForm('/auth/login', form)
     state.token = data.access_token
-    localStorage.setItem('token', data.access_token)
+    localStorage.setItem(TOKEN_KEY, data.access_token)
     await fetchUser()
   }
 
@@ -33,6 +33,8 @@ export function useAuth() {
     } catch (e) {
       if (e instanceof AuthenticationError) {
         clearAuth()
+      } else {
+        console.error('获取用户信息失败:', e)
       }
     }
   }

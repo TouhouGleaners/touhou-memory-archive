@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+export const TOKEN_KEY = 'token'
 
 export class AuthenticationError extends Error {
   constructor(message = '认证已过期，请重新登录') {
@@ -8,7 +9,7 @@ export class AuthenticationError extends Error {
 }
 
 function getToken() {
-  return localStorage.getItem('token')
+  return localStorage.getItem(TOKEN_KEY)
 }
 
 async function request(method, path, { body, form, wrap401 = true } = {}) {
