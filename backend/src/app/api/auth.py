@@ -31,16 +31,11 @@ def login(
     session: Session = Depends(get_session),
 ):
     admin = session.exec(select(Admin).where(Admin.username == form_data.username)).first()
-    if not admin or not verify_password(form_data.password, admin.hashed_password):
+    if not admin or not verify_password(form_data.password, admin.hashed_password) or not admin.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
             headers={"WWW-Authenticate": "Bearer"},
-        )
-    if not admin.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="账号已被禁用",
         )
 
     access_token = create_access_token(data={"sub": str(admin.id), "role": admin.role})
