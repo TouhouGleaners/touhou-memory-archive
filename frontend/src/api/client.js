@@ -31,7 +31,10 @@ async function request(method, path, { body, form, wrap401 = true } = {}) {
   const res = await fetch(`${API_BASE}${path}`, options)
 
   if (res.status === 401) {
-    if (wrap401) throw new AuthenticationError()
+    if (wrap401) {
+      localStorage.removeItem(TOKEN_KEY)
+      throw new AuthenticationError()
+    }
     const data = await res.json().catch(() => ({}))
     throw new Error(data.detail || '用户名或密码错误')
   }

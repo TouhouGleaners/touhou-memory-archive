@@ -51,11 +51,6 @@ export function useAuth() {
     clearAuth()
   }
 
-  // 如果有 token 但没有 user 信息，自动获取
-  if (state.token && !state.user) {
-    fetchUser()
-  }
-
   return {
     state,
     isLoggedIn,
