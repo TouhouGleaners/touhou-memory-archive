@@ -1,6 +1,11 @@
 import { reactive, computed } from 'vue'
 import { apiGet, apiPostForm, AuthenticationError, TOKEN_KEY } from '../api/client.js'
 
+// token 存 localStorage：简单直接，适合管理员后台场景。
+// 若未来需要更高安全性，可改为 HttpOnly Cookie + 后端配合。
+
+let isFetchingUser = false
+
 const state = reactive({
   token: localStorage.getItem(TOKEN_KEY) || null,
   user: null,
@@ -27,7 +32,8 @@ export function useAuth() {
   }
 
   async function fetchUser() {
-    if (!state.token) return
+    if (!state.token || isFetchingUser) return
+    isFetchingUser = true
     try {
       state.user = await apiGet('/auth/me')
     } catch (e) {
@@ -36,6 +42,8 @@ export function useAuth() {
       } else {
         console.error('获取用户信息失败:', e)
       }
+    } finally {
+      isFetchingUser = false
     }
   }
 
