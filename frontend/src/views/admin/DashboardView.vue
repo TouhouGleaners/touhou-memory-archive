@@ -15,16 +15,22 @@
 </template>
 
 <script setup>
+import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth.js'
 
 const router = useRouter()
-const { state, logout } = useAuth()
+const { state, isLoggedIn, logout } = useAuth()
 
 function handleLogout() {
   logout()
-  router.push('/admin/login')
+  router.push({ name: 'admin-login' })
 }
+
+// token 过期后 fetchUser 清除了状态，跳转登录页
+watch(isLoggedIn, (val) => {
+  if (!val) router.push({ name: 'admin-login' })
+})
 </script>
 
 <style scoped>

@@ -11,7 +11,7 @@ function getToken() {
   return localStorage.getItem('token')
 }
 
-async function request(method, path, { body, form } = {}) {
+async function request(method, path, { body, form, wrap401 = true } = {}) {
   const headers = {}
   const token = getToken()
   if (token) {
@@ -30,7 +30,9 @@ async function request(method, path, { body, form } = {}) {
   const res = await fetch(`${API_BASE}${path}`, options)
 
   if (res.status === 401) {
-    throw new AuthenticationError()
+    if (wrap401) throw new AuthenticationError()
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.detail || '用户名或密码错误')
   }
 
   if (!res.ok) {
@@ -50,7 +52,7 @@ export function apiPost(path, body) {
 }
 
 export function apiPostForm(path, formData) {
-  return request('POST', path, { form: formData })
+  return request('POST', path, { form: formData, wrap401: false })
 }
 
 export function apiPatch(path, body) {

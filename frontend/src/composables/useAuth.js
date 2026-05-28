@@ -30,11 +30,8 @@ export function useAuth() {
     if (!state.token) return
     try {
       state.user = await apiGet('/auth/me')
-    } catch (e) {
+    } catch {
       clearAuth()
-      if (e instanceof AuthenticationError) {
-        window.location.hash = '#/admin/login'
-      }
     }
   }
 
