@@ -1,10 +1,16 @@
 import { reactive, computed } from 'vue'
-import { apiGet, apiPostForm } from '../api/client.js'
+import { apiGet, apiPostForm, AuthenticationError } from '../api/client.js'
 
 const state = reactive({
   token: localStorage.getItem('token') || null,
   user: null,
 })
+
+function clearAuth() {
+  state.token = null
+  state.user = null
+  localStorage.removeItem('token')
+}
 
 export function useAuth() {
   const isLoggedIn = computed(() => !!state.token)
@@ -24,17 +30,16 @@ export function useAuth() {
     if (!state.token) return
     try {
       state.user = await apiGet('/auth/me')
-    } catch {
-      state.token = null
-      state.user = null
-      localStorage.removeItem('token')
+    } catch (e) {
+      clearAuth()
+      if (e instanceof AuthenticationError) {
+        window.location.hash = '#/admin/login'
+      }
     }
   }
 
   function logout() {
-    state.token = null
-    state.user = null
-    localStorage.removeItem('token')
+    clearAuth()
   }
 
   // 如果有 token 但没有 user 信息，自动获取

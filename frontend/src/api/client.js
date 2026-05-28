@@ -1,11 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
-function getToken() {
-  return localStorage.getItem('token')
+export class AuthenticationError extends Error {
+  constructor(message = '认证已过期，请重新登录') {
+    super(message)
+    this.name = 'AuthenticationError'
+  }
 }
 
-function clearToken() {
-  localStorage.removeItem('token')
+function getToken() {
+  return localStorage.getItem('token')
 }
 
 async function request(method, path, { body, form } = {}) {
@@ -18,7 +21,6 @@ async function request(method, path, { body, form } = {}) {
   const options = { method, headers }
 
   if (form) {
-    // OAuth2 表单登录，不设 Content-Type（浏览器自动加 boundary）
     options.body = form
   } else if (body) {
     headers['Content-Type'] = 'application/json'
@@ -28,9 +30,7 @@ async function request(method, path, { body, form } = {}) {
   const res = await fetch(`${API_BASE}${path}`, options)
 
   if (res.status === 401) {
-    clearToken()
-    window.location.hash = '#/admin/login'
-    throw new Error('认证已过期，请重新登录')
+    throw new AuthenticationError()
   }
 
   if (!res.ok) {

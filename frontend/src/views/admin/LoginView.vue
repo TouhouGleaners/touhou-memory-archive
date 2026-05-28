@@ -18,10 +18,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../../composables/useAuth.js'
 
 const router = useRouter()
+const route = useRoute()
 const { login } = useAuth()
 
 const username = ref('')
@@ -34,7 +35,7 @@ async function handleLogin() {
   loading.value = true
   try {
     await login(username.value, password.value)
-    router.push('/admin')
+    router.push(route.query.redirect || '/admin')
   } catch (e) {
     error.value = e.message
   } finally {

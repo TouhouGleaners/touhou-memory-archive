@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useAuth } from '../composables/useAuth.js'
 
 // 懒加载组件
 const HomeView = () => import('../views/HomeView.vue')
@@ -28,8 +29,11 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.meta.requiresAuth && !localStorage.getItem('token')) {
-    return { name: 'admin-login' }
+  if (to.meta.requiresAuth) {
+    const { isLoggedIn } = useAuth()
+    if (!isLoggedIn.value) {
+      return { name: 'admin-login', query: { redirect: to.fullPath } }
+    }
   }
 })
 
