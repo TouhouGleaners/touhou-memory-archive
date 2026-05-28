@@ -10,7 +10,10 @@ from sqlmodel import Session, select
 from domain.database import get_session
 from domain.models.admin import Admin
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY 环境变量未设置，请在 .env 中配置")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8
 
@@ -47,10 +50,11 @@ async def get_current_admin(
         admin_id: str | None = payload.get("sub")
         if admin_id is None:
             raise credentials_exception
-    except JWTError:
+        admin_id_int = int(admin_id)
+    except (JWTError, ValueError):
         raise credentials_exception
 
-    admin = session.get(Admin, int(admin_id))
+    admin = session.get(Admin, admin_id_int)
     if admin is None or not admin.is_active:
         raise credentials_exception
     return admin
