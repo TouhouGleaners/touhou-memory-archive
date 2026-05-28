@@ -97,13 +97,14 @@ async function loadVideos() {
 }
 
 async function handleStatusChange(video, newStatus) {
-  const val = parseInt(newStatus)
+  const val = parseInt(newStatus, 10)
+  if (isNaN(val)) return
   savingBvid.value = video.bvid
   try {
     await apiPatch(`/admin/videos/${video.bvid}/touhou-status`, { touhou_status: val })
     video.touhou_status = val
   } catch (e) {
-    alert(`修改失败: ${e.message}`)
+    alert(`修改失败: ${e.message || '未知错误'}`)
   } finally {
     savingBvid.value = null
   }

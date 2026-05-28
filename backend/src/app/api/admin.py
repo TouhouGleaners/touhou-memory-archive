@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.auth import require_role
@@ -15,10 +15,7 @@ router = APIRouter()
 
 
 class TouhouStatusUpdate(BaseModel):
-    touhou_status: int  # 0:未检测 1:自动东方 2:自动非东方 3:人工东方 4:人工非东方
-
-
-VALID_TOUHOU_STATUS = {0, 1, 2, 3, 4}
+    touhou_status: int = Field(ge=0, le=4)  # 0:未检测 1:自动东方 2:自动非东方 3:人工东方 4:人工非东方
 
 
 @router.patch("/videos/{bvid}/touhou-status")
@@ -28,11 +25,6 @@ def update_touhou_status(
     session: Session = Depends(get_session),
     current_admin: Admin = Depends(require_role(AdminRole.ADMIN)),
 ):
-    if body.touhou_status not in VALID_TOUHOU_STATUS:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"无效的 touhou_status 值，合法值: {sorted(VALID_TOUHOU_STATUS)}",
-        )
 
     video = session.exec(select(Video).where(Video.bvid == bvid)).first()
     if not video:
