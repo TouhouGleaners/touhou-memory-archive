@@ -8,20 +8,13 @@ from passlib.context import CryptContext
 from sqlmodel import Session, select
 
 from domain.database import get_session
-from domain.models.admin import Admin, ROLE_HIERARCHY
+from domain.models.admin import Admin, AdminRole
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-
-
-def _get_secret_key() -> str:
-    key = os.getenv("SECRET_KEY")
-    if not key:
-        raise ValueError("SECRET_KEY 环境变量未设置，请在 .env 中配置")
-    return key
 
 
 def hash_password(password: str) -> str:
@@ -36,7 +29,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, _get_secret_key(), algorithm=ALGORITHM)
+    return jwt.encode(to_encode, os.environ["SECRET_KEY"], algorithm=ALGORITHM)
 
 
 async def get_current_admin(
@@ -49,7 +42,7 @@ async def get_current_admin(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, _get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(token, os.environ["SECRET_KEY"], algorithms=[ALGORITHM])
         admin_id: str | None = payload.get("sub")
         if admin_id is None:
             raise credentials_exception
@@ -63,20 +56,11 @@ async def get_current_admin(
     return admin
 
 
-def require_role(required_role: str):
+def require_role(required_role: AdminRole):
     """依赖注入工厂：要求当前管理员的角色 >= required_role。"""
-    if required_role not in ROLE_HIERARCHY:
-        raise ValueError(f"未知角色: {required_role}，合法值: {list(ROLE_HIERARCHY.keys())}")
 
     async def _check(current_admin: Admin = Depends(get_current_admin)) -> Admin:
-        if current_admin.role not in ROLE_HIERARCHY:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"管理员角色配置异常: {current_admin.role}",
-            )
-        current_level = ROLE_HIERARCHY[current_admin.role]
-        required_level = ROLE_HIERARCHY[required_role]
-        if current_level < required_level:
+        if current_admin.role < required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="权限不足",

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from domain.database import get_session
-from domain.models.admin import Admin
+from domain.models.admin import Admin, AdminRole
 from app.auth import verify_password, create_access_token, get_current_admin
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class TokenResponse(BaseModel):
 class AdminInfo(BaseModel):
     id: int
     username: str
-    role: str
+    role: AdminRole
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -38,7 +38,7 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": str(admin.id), "role": admin.role})
+    access_token = create_access_token(data={"sub": str(admin.id)})
     logger.info(f"管理员 {admin.username} 登录成功")
     return TokenResponse(access_token=access_token)
 

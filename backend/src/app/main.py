@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,7 +14,7 @@ from sqlmodel import Session, select
 from .api import videos, users, auth
 from .auth import hash_password
 from domain.database import engine, init_db
-from domain.models.admin import Admin
+from domain.models.admin import Admin, AdminRole
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +66,7 @@ def on_startup():
         admin = Admin(
             username=admin_username,
             hashed_password=hash_password(admin_password),
-            role="superadmin",
-            created_at=int(time.time()),
+            role=AdminRole.SUPERADMIN,
         )
         session.add(admin)
         session.commit()
