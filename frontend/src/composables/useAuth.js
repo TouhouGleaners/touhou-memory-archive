@@ -30,8 +30,10 @@ export function useAuth() {
     if (!state.token) return
     try {
       state.user = await apiGet('/auth/me')
-    } catch {
-      clearAuth()
+    } catch (e) {
+      if (e instanceof AuthenticationError) {
+        clearAuth()
+      }
     }
   }
 
