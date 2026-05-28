@@ -46,10 +46,14 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
 
 @app.on_event("startup")
-def seed_admin():
-    """Admin 表为空时，用 .env 中的凭据创建初始 superadmin。"""
+def on_startup():
     init_db()
 
+    # 启动时快速校验 SECRET_KEY
+    if not os.getenv("SECRET_KEY"):
+        raise RuntimeError("SECRET_KEY 环境变量未设置，请在 .env 中配置")
+
+    # 按用户名检查初始管理员是否已存在，不存在则创建
     admin_username = os.getenv("ADMIN_USERNAME")
     admin_password = os.getenv("ADMIN_PASSWORD")
     if not admin_username or not admin_password:
@@ -57,7 +61,7 @@ def seed_admin():
         return
 
     with Session(engine) as session:
-        existing = session.exec(select(Admin)).first()
+        existing = session.exec(select(Admin).where(Admin.username == admin_username)).first()
         if existing:
             return
         admin = Admin(

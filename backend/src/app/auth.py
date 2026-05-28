@@ -8,12 +8,10 @@ from passlib.context import CryptContext
 from sqlmodel import Session, select
 
 from domain.database import get_session
-from domain.models.admin import Admin
+from domain.models.admin import Admin, ROLE_HIERARCHY
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8
-
-ROLE_HIERARCHY: dict[str, int] = {"admin": 1, "superadmin": 2}
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
