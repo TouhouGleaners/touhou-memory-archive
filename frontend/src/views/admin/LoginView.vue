@@ -37,7 +37,7 @@ async function handleLogin() {
     await login(username.value, password.value)
     router.push(route.query.redirect || '/admin')
   } catch (e) {
-    error.value = e.message
+    error.value = e.message || '登录失败，请稍后重试'
   } finally {
     loading.value = false
   }

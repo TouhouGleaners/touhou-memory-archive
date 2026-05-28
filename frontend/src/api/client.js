@@ -41,11 +41,12 @@ async function request(method, path, { body, form, wrap401 = true } = {}) {
     throw new Error(data.detail || `请求失败 (${res.status})`)
   }
 
-  if (res.status === 204 || res.headers.get('content-length') === '0') {
-    return null
+  try {
+    return await res.json()
+  } catch {
+    if (res.ok) return null
+    throw new Error(`请求失败 (${res.status})`)
   }
-
-  return res.json()
 }
 
 export function apiGet(path) {

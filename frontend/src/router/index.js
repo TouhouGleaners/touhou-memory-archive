@@ -28,11 +28,18 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.meta.requiresAuth) {
-    const { isLoggedIn } = useAuth()
+    const { state, isLoggedIn, fetchUser } = useAuth()
     if (!isLoggedIn.value) {
       return { name: 'admin-login', query: { redirect: to.fullPath } }
+    }
+    // 有 token 但还没拿到 user 信息，等一下再决定
+    if (!state.user) {
+      await fetchUser()
+      if (!state.user) {
+        return { name: 'admin-login', query: { redirect: to.fullPath } }
+      }
     }
   }
 })
