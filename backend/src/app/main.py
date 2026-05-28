@@ -66,6 +66,7 @@ def on_startup():
             logger.info(f"已创建初始 superadmin: {admin_username}")
         except IntegrityError:
             session.rollback()
+            logger.warning(f"创建管理员 {admin_username} 时发生唯一约束冲突，可能已被其他实例创建")
 
 
 @app.get("/")

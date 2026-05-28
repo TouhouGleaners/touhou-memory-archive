@@ -39,7 +39,7 @@ def login(
         )
 
     access_token = create_access_token(data={"sub": str(admin.id)})
-    logger.info(f"管理员 {admin.username} 登录成功")
+    logger.debug(f"管理员 {admin.username} 登录成功")
     return TokenResponse(access_token=access_token)
 
 

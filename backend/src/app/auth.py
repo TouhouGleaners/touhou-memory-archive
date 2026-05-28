@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 
-from app.config import SECRET_KEY
+from .config import SECRET_KEY
 from domain.database import get_session
 from domain.models.admin import Admin, AdminRole
 
