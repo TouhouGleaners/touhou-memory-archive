@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from .api import videos, users, auth
+from .api import videos, users, auth, admin
 from .auth import hash_password
 from .config import SECRET_KEY  # noqa: F401 — 确保启动时校验
 from domain.database import engine, init_db
@@ -36,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
