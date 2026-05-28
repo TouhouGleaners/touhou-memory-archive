@@ -41,6 +41,10 @@ async function request(method, path, { body, form, wrap401 = true } = {}) {
     throw new Error(data.detail || `请求失败 (${res.status})`)
   }
 
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return null
+  }
+
   return res.json()
 }
 
