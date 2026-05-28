@@ -60,7 +60,7 @@ def require_role(required_role: AdminRole):
     """依赖注入工厂：要求当前管理员的角色 >= required_role。"""
 
     async def _check(current_admin: Admin = Depends(get_current_admin)) -> Admin:
-        if current_admin.role < required_role:
+        if not current_admin.role.sufficient_for(required_role):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="权限不足",

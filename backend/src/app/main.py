@@ -53,6 +53,7 @@ def on_startup():
     with Session(engine) as session:
         existing = session.exec(select(Admin).where(Admin.username == admin_username)).first()
         if existing:
+            logger.info(f"管理员 {admin_username} 已存在，跳过创建")
             return
         admin = Admin(
             username=admin_username,
