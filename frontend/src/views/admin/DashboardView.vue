@@ -29,7 +29,7 @@
             <td class="col-uploader">{{ v.uploader_name }}</td>
             <td class="col-status">
               <span :class="['status-tag', statusClass(v.touhou_status)]">
-                {{ statusMap[v.touhou_status] }}
+                {{ statusLabelMap[v.touhou_status] }}
               </span>
             </td>
             <td class="col-action">
@@ -38,11 +38,9 @@
                 :disabled="savingBvid === v.bvid"
                 @change="handleStatusChange(v, $event.target.value)"
               >
-                <option :value="0">未检测</option>
-                <option :value="1">自动东方</option>
-                <option :value="2">自动非东方</option>
-                <option :value="3">人工东方</option>
-                <option :value="4">人工非东方</option>
+                <option v-for="opt in touhouStatusOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
               </select>
             </td>
           </tr>
@@ -57,6 +55,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth.js'
 import { apiGet, apiPatch } from '../../api/client.js'
+import { touhouStatusOptions } from '../../utils/index.js'
 
 const router = useRouter()
 const { state, isLoggedIn, logout } = useAuth()
@@ -66,18 +65,11 @@ const loading = ref(true)
 const error = ref('')
 const savingBvid = ref(null)
 
-const statusMap = {
-  0: '未检测',
-  1: '自动东方',
-  2: '自动非东方',
-  3: '人工东方',
-  4: '人工非东方',
-}
+const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
+const statusClassMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.cssClass]))
 
 function statusClass(s) {
-  if (s === 1 || s === 3) return 'status-touhou'
-  if (s === 2 || s === 4) return 'status-non-touhou'
-  return 'status-unknown'
+  return statusClassMap[s] || 'status-unknown'
 }
 
 function getVideoUrl(bvid) {
@@ -90,7 +82,7 @@ async function loadVideos() {
   try {
     videos.value = await apiGet('/videos')
   } catch (e) {
-    error.value = e.message
+    error.value = e?.message || String(e) || '加载失败'
   } finally {
     loading.value = false
   }
