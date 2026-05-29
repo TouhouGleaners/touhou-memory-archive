@@ -1,12 +1,17 @@
 import { reactive, computed } from 'vue'
-import { apiGet, apiPostForm, AuthenticationError, TOKEN_KEY } from '../api/client.js'
+import { apiGet, apiPostForm, AuthenticationError, TOKEN_KEY } from '../api/client'
 
 // token 存 localStorage：简单直接，适合管理员后台场景。
 // 若未来需要更高安全性，可改为 HttpOnly Cookie + 后端配合。
 
+interface AuthState {
+  token: string | null
+  user: { id: number; username: string; role: string } | null
+}
+
 let isFetchingUser = false
 
-const state = reactive({
+const state = reactive<AuthState>({
   token: localStorage.getItem(TOKEN_KEY) || null,
   user: null,
 })
@@ -20,12 +25,12 @@ function clearAuth() {
 export function useAuth() {
   const isLoggedIn = computed(() => !!state.token)
 
-  async function login(username, password) {
+  async function login(username: string, password: string) {
     const form = new URLSearchParams()
     form.append('username', username)
     form.append('password', password)
 
-    const data = await apiPostForm('/auth/login', form)
+    const data = await apiPostForm<{ access_token: string }>('/auth/login', form)
     state.token = data.access_token
     localStorage.setItem(TOKEN_KEY, data.access_token)
     await fetchUser()
@@ -35,7 +40,7 @@ export function useAuth() {
     if (!state.token || isFetchingUser) return
     isFetchingUser = true
     try {
-      state.user = await apiGet('/auth/me')
+      state.user = await apiGet<AuthState['user']>('/auth/me')
     } catch (e) {
       if (e instanceof AuthenticationError) {
         clearAuth()

@@ -1,7 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { useAuth } from '../composables/useAuth.js'
+import { useAuth } from '../composables/useAuth'
 
-// 懒加载组件
 const HomeView = () => import('../views/HomeView.vue')
 const LoginView = () => import('../views/admin/LoginView.vue')
 const DashboardView = () => import('../views/admin/DashboardView.vue')
@@ -34,7 +33,6 @@ router.beforeEach(async (to) => {
     if (!isLoggedIn.value) {
       return { name: 'admin-login', query: { redirect: to.fullPath } }
     }
-    // 有 token 但还没拿到 user 信息，等一下再决定
     if (!state.user) {
       await fetchUser()
       if (!state.user) {

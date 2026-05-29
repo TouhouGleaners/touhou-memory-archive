@@ -16,10 +16,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuth } from '../../composables/useAuth.js'
+import { useAuth } from '../../composables/useAuth'
 
 const router = useRouter()
 const route = useRoute()
@@ -35,9 +35,10 @@ async function handleLogin() {
   loading.value = true
   try {
     await login(username.value, password.value)
-    router.push(route.query.redirect || '/admin')
+    const redirect = route.query.redirect
+    router.push(typeof redirect === 'string' ? redirect : '/admin')
   } catch (e) {
-    error.value = e.message || '登录失败，请稍后重试'
+    error.value = e instanceof Error ? e.message : '登录失败，请稍后重试'
   } finally {
     loading.value = false
   }

@@ -1,17 +1,26 @@
-import { ref, computed } from 'vue';
+import { ref, computed, type Ref } from 'vue';
 
-export function useSorting(videos) {
+export interface SortableVideo {
+  aid: number
+  bvid: string
+  title: string
+  uploader_name: string
+  created: number
+  touhou_status: number
+  parts: unknown[]
+}
+
+export function useSorting(videos: Ref<SortableVideo[]>) {
   const sortField = ref('');
-  const sortOrder = ref('');  // 'asc' 或 'desc'
+  const sortOrder = ref<'asc' | 'desc' | ''>('');
 
-  // 排序后的视频数据
   const sortedVideos = computed(() => {
     if (!sortField.value || !sortOrder.value) {
       return videos.value;
     }
 
     return [...videos.value].sort((a, b) => {
-      let valueA, valueB
+      let valueA: string | number, valueB: string | number
 
       switch (sortField.value) {
         case 'title':
@@ -38,25 +47,21 @@ export function useSorting(videos) {
           return 0
       }
 
-      // 字符串比较
       if (typeof valueA === 'string') {
-        const result = valueA.localeCompare(valueB, 'zh-CN')
+        const result = valueA.localeCompare(valueB as string, 'zh-CN')
         return sortOrder.value === 'asc' ? result : -result
       }
 
-      // 数字比较
       if (sortOrder.value === 'asc') {
-        return valueA - valueB
+        return (valueA as number) - (valueB as number)
       } else {
-        return valueB - valueA
+        return (valueB as number) - (valueA as number)
       }
+    });
   });
-});
-  
-  // 处理排序
-  const handleSort = (field) => {
+
+  const handleSort = (field: string) => {
     if (sortField.value === field) {
-      // 同一字段：无排序 -> 升序 -> 降序 -> 无排序
       if (!sortOrder.value) {
         sortOrder.value = 'asc'
       } else if (sortOrder.value === 'asc') {
@@ -66,14 +71,12 @@ export function useSorting(videos) {
         sortOrder.value = ''
       }
     } else {
-      // 不同字段：直接设为升序
       sortField.value = field
       sortOrder.value = 'asc'
     }
   }
 
-  // 获取排序指示器的样式类
-  const getSortClass = (field) => {
+  const getSortClass = (field: string) => {
     if (sortField.value !== field) return ''
     return sortOrder.value === 'asc' ? 'sort-asc' : sortOrder.value === 'desc' ? 'sort-desc' : ''
   }

@@ -8,18 +8,24 @@ export class AuthenticationError extends Error {
   }
 }
 
-function getToken() {
+interface RequestOptions {
+  body?: unknown
+  form?: URLSearchParams
+  wrap401?: boolean
+}
+
+function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
 
-async function request(method, path, { body, form, wrap401 = true } = {}) {
-  const headers = {}
+async function request<T = unknown>(method: string, path: string, { body, form, wrap401 = true }: RequestOptions = {}): Promise<T> {
+  const headers: Record<string, string> = {}
   const token = getToken()
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const options = { method, headers }
+  const options: RequestInit = { method, headers }
 
   if (form) {
     options.body = form
@@ -47,23 +53,23 @@ async function request(method, path, { body, form, wrap401 = true } = {}) {
   try {
     return await res.json()
   } catch {
-    if (res.ok) return null
+    if (res.ok) return null as T
     throw new Error(`请求失败 (${res.status})`)
   }
 }
 
-export function apiGet(path) {
-  return request('GET', path)
+export function apiGet<T = unknown>(path: string): Promise<T> {
+  return request<T>('GET', path)
 }
 
-export function apiPost(path, body) {
-  return request('POST', path, { body })
+export function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
+  return request<T>('POST', path, { body })
 }
 
-export function apiPostForm(path, formData) {
-  return request('POST', path, { form: formData, wrap401: false })
+export function apiPostForm<T = unknown>(path: string, formData: URLSearchParams): Promise<T> {
+  return request<T>('POST', path, { form: formData, wrap401: false })
 }
 
-export function apiPatch(path, body) {
-  return request('PATCH', path, { body })
+export function apiPatch<T = unknown>(path: string, body?: unknown): Promise<T> {
+  return request<T>('PATCH', path, { body })
 }

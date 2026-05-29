@@ -72,7 +72,7 @@
   </tr>
 </template>
 
-<script>
+<script lang="ts">
 import { computed, ref } from 'vue'
 import { formatDate, formatTime, getStatusText, getVideoUrl } from '../utils'
 import VideoTooltip from './VideoTooltip.vue'
@@ -102,7 +102,7 @@ export default {
     }
 
     // 安全的高亮函数，返回一个数组: [before, match, after]
-    const highlightSearchTerm = (text) => {
+    const highlightSearchTerm = (text: string) => {
       const safeText = text || ''  // 确保text不为null或undefined
       if (!props.searchTerm) {
         return [safeText, '', '']  // 没有搜索词时直接返回原始文本
@@ -129,7 +129,7 @@ export default {
     const totalDuration = computed(() => {
       let total = 0
       if (props.video.parts && props.video.parts.length > 0) {
-        props.video.parts.forEach(part => {
+        props.video.parts.forEach((part: { duration: number }) => {
           total += part.duration
         })
       }

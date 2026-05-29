@@ -26,19 +26,19 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import VideoTable from '../components/VideoTable.vue'
 import AppFooter from '../components/AppFooter.vue'
 import ScrollButtons from '../components/ScrollButtons.vue'
-import { useFiltering } from '../composables/useFiltering.js'
+import { useFiltering } from '../composables/useFiltering'
 
 import { 
   parseEnvBoolean, 
   computeUploaderList, 
   formatDateTime 
-} from '../utils/index.js' 
+} from '../utils/index' 
 
 export default {
   name: 'HomeView',
@@ -46,7 +46,7 @@ export default {
   setup() {
     // --- 状态定义 ---
     const allVideos = ref([])
-    const uploaderList = ref([])
+    const uploaderList = ref<string[]>([])
     const loading = ref(true)
     const error = ref('')
     const dataUpdateTime = ref('')
@@ -63,7 +63,7 @@ export default {
     // --- 具体的获取策略 ---
 
     // 策略 A: 从 API 获取
-    const fetchFromApi = async (apiBase) => {
+    const fetchFromApi = async (apiBase: string) => {
       console.log(`[Dev] 正在从本地后端获取数据: ${apiBase}/videos`)
       const response = await fetch(`${apiBase}/videos`)
       if (!response.ok) throw new Error(`API 请求失败: ${response.status}`)
@@ -117,7 +117,7 @@ export default {
 
       } catch (err) {
         console.error('加载失败:', err)
-        error.value = err.message || '未知错误'
+        error.value = err instanceof Error ? err.message : '未知错误'
         dataUpdateTime.value = '更新失败'
       } finally {
         loading.value = false
@@ -125,9 +125,9 @@ export default {
     }
 
     // 事件处理
-    const handleSearch = (term) => currentFilterState.searchTerm = term
-    const handleStatusFilter = (status) => currentFilterState.statusFilter = status
-    const handleUploaderFilter = (uploader) => currentFilterState.uploaderFilter = uploader
+    const handleSearch = (term: string) => currentFilterState.searchTerm = term
+    const handleStatusFilter = (status: string) => currentFilterState.statusFilter = status
+    const handleUploaderFilter = (uploader: string) => currentFilterState.uploaderFilter = uploader
 
     onMounted(loadVideoData)
 

@@ -49,7 +49,7 @@
   </header>
 </template>
 
-<script>
+<script lang="ts">
 import { ref } from 'vue'
 
 export default {
@@ -60,7 +60,7 @@ export default {
       default: 0
     },
     uploaderList: {
-      type: Array,
+      type: Array as () => string[],
       default: () => []
     }
   },
@@ -69,33 +69,33 @@ export default {
     const searchInput = ref('')
     const statusFilter = ref('all')
     const uploaderFilter = ref('所有UP主')
-    let debounceTimer = null
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
     // 处理搜索输入（防抖）
     const handleSearchInput = () => {
-      clearTimeout(debounceTimer)
+      if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         emit('search', searchInput.value)
       }, 500)
     }
 
     // 处理回车键搜索
-    const handleKeyPress = (e) => {
+    const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
-        clearTimeout(debounceTimer)
+        if (debounceTimer) clearTimeout(debounceTimer)
         emit('search', searchInput.value)
       }
     }
 
     // 处理状态筛选变化
-    const handleStatusChange = (e) => {
-      statusFilter.value = e.target.value
+    const handleStatusChange = (e: Event) => {
+      statusFilter.value = (e.target as HTMLSelectElement).value
       emit('filter', statusFilter.value)
     }
 
     // 处理UP主筛选变化
-    const handleUploaderChange = (e) => {
-      uploaderFilter.value = e.target.value
+    const handleUploaderChange = (e: Event) => {
+      uploaderFilter.value = (e.target as HTMLSelectElement).value
       const emitValue = uploaderFilter.value === '所有UP主' ? 'all' : uploaderFilter.value
       emit('filter-uploader', emitValue)
     }

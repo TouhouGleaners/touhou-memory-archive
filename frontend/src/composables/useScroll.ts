@@ -1,15 +1,21 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 
-// 节流函数
-function throttle(fn, delay) {
-  let timerId = null;
-  const throttledFn = function (...args) {
+interface ScrollOptions {
+  threshold?: number
+  throttleDelay?: number
+}
+
+type ThrottledFn = ((...args: unknown[]) => void) & { cancel: () => void }
+
+function throttle(fn: (...args: unknown[]) => void, delay: number): ThrottledFn {
+  let timerId: ReturnType<typeof setTimeout> | null = null;
+  const throttledFn = function (this: unknown, ...args: unknown[]) {
     if (timerId) return;
     timerId = setTimeout(() => {
       fn.apply(this, args);
       timerId = null;
     }, delay);
-  };
+  } as ThrottledFn;
   throttledFn.cancel = () => {
     if (timerId) {
       clearTimeout(timerId);
@@ -18,8 +24,8 @@ function throttle(fn, delay) {
   return throttledFn;
 }
 
-export function useScroll(options = {}) {
-  const { threshold = 200, throttleDelay = 100 } = options; // 从配置中解构参数，并提供默认值
+export function useScroll(options: ScrollOptions = {}) {
+  const { threshold = 200, throttleDelay = 100 } = options;
   const showScrollToTop = ref(false);
   const showScrollToBottom = ref(false);
   const handleScroll = () => {
@@ -31,11 +37,11 @@ export function useScroll(options = {}) {
   const throttledHandleScroll = throttle(handleScroll, throttleDelay);
   onMounted(() => {
     window.addEventListener('scroll', throttledHandleScroll, { passive: true });
-    handleScroll(); // 组件挂载后立即执行一次，以初始化状态
+    handleScroll();
   });
   onUnmounted(() => {
     window.removeEventListener('scroll', throttledHandleScroll);
-    throttledHandleScroll.cancel(); // 在组件卸载时清除任何待处理的计时器，防止内存泄漏和潜在的错误
+    throttledHandleScroll.cancel();
   });
   return { showScrollToTop, showScrollToBottom };
 }
