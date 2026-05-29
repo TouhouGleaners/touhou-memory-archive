@@ -9,6 +9,7 @@
     </header>
     <main class="dashboard-content">
       <h3>视频管理</h3>
+      <p v-if="toast" class="toast" :class="toast.type">{{ toast.text }}</p>
       <p v-if="loading" class="status">加载中...</p>
       <p v-else-if="error" class="status error">{{ error }}</p>
       <p v-else-if="!videos.length" class="status">暂无视频数据</p>
@@ -29,7 +30,7 @@
             <td class="col-uploader">{{ v.uploader_name }}</td>
             <td class="col-status">
               <span :class="['status-tag', statusClass(v.touhou_status)]">
-                {{ statusLabelMap[v.touhou_status] }}
+                {{ statusLabelMap[v.touhou_status] || '未知状态' }}
               </span>
             </td>
             <td class="col-action">
@@ -63,6 +64,7 @@ const { state, isLoggedIn, logout } = useAuth()
 const videos = ref([])
 const loading = ref(true)
 const error = ref('')
+const toast = ref('')
 const savingBvid = ref(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
@@ -76,13 +78,18 @@ function getVideoUrl(bvid) {
   return `https://www.bilibili.com/video/${bvid}`
 }
 
+function showToast(text, type = 'success') {
+  toast.value = { text, type }
+  setTimeout(() => { toast.value = '' }, 3000)
+}
+
 async function loadVideos() {
   loading.value = true
   error.value = ''
   try {
     videos.value = await apiGet('/videos')
   } catch (e) {
-    error.value = e?.message || String(e) || '加载失败'
+    error.value = e instanceof Error && e.message ? e.message : '加载失败'
   } finally {
     loading.value = false
   }
@@ -90,13 +97,14 @@ async function loadVideos() {
 
 async function handleStatusChange(video, newStatus) {
   const val = parseInt(newStatus, 10)
-  if (isNaN(val)) return
+  if (isNaN(val) || val === video.touhou_status) return
   savingBvid.value = video.bvid
   try {
     await apiPatch(`/admin/videos/${video.bvid}/touhou-status`, { touhou_status: val })
     video.touhou_status = val
+    showToast(`已将 ${video.bvid} 状态改为 ${statusLabelMap[val] || val}`)
   } catch (e) {
-    alert(`修改失败: ${e.message || '未知错误'}`)
+    showToast(`修改失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
   } finally {
     savingBvid.value = null
   }
@@ -253,5 +261,22 @@ onMounted(loadVideos)
 .status-unknown {
   background: #f5f5f5;
   color: #999;
+}
+
+.toast {
+  padding: 0.6rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin: 0 0 1rem;
+}
+
+.toast.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.toast.error {
+  background: #fce4ec;
+  color: #c62828;
 }
 </style>
