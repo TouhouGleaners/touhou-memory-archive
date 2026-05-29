@@ -32,7 +32,7 @@ import AppHeader from '../components/AppHeader.vue'
 import VideoTable from '../components/VideoTable.vue'
 import AppFooter from '../components/AppFooter.vue'
 import ScrollButtons from '../components/ScrollButtons.vue'
-import { useFiltering } from '../composables/useFiltering'
+import { useFiltering, type FilterableVideo } from '../composables/useFiltering'
 
 import { 
   parseEnvBoolean, 
@@ -45,7 +45,7 @@ export default {
   components: { AppHeader, VideoTable, AppFooter, ScrollButtons },
   setup() {
     // --- 状态定义 ---
-    const allVideos = ref([])
+    const allVideos = ref<FilterableVideo[]>([])
     const uploaderList = ref<string[]>([])
     const loading = ref(true)
     const error = ref('')

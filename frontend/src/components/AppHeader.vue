@@ -50,7 +50,7 @@
 </template>
 
 <script lang="ts">
-import { ref } from 'vue'
+import { ref, type PropType } from 'vue'
 
 export default {
   name: 'AppHeader',
@@ -60,7 +60,7 @@ export default {
       default: 0
     },
     uploaderList: {
-      type: Array as () => string[],
+      type: Array as PropType<string[]>,
       default: () => []
     }
   },

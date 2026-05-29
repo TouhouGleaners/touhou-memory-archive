@@ -1,6 +1,6 @@
 import { computed, type Ref } from "vue";
 
-interface FilterableVideo {
+export interface FilterableVideo {
   title: string
   uploader_name: string
   touhou_status: number
