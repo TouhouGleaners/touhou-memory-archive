@@ -1,5 +1,5 @@
 // 状态描述映射
-export const statusMap = {
+export const statusMap: Record<number, string> = {
   0: "未检查",
   1: "自动检测为东方",
   2: "自动检测为非东方",
@@ -11,7 +11,7 @@ export const statusMap = {
 // 东方状态选项（管理后台用）
 // 后端对应定义在 backend/src/app/api/admin.py 的 TouhouStatus IntEnum，修改时需同步
 export const touhouStatusOptions = [
-  { value: 0, label: "未检测",     touhou: null },
+  { value: 0, label: "未检测",     touhou: null as boolean | null },
   { value: 1, label: "自动东方",   touhou: true },
   { value: 2, label: "自动非东方", touhou: false },
   { value: 3, label: "人工东方",   touhou: true },
@@ -19,7 +19,7 @@ export const touhouStatusOptions = [
 ];
 
 // 格式化日期 (YYYY/MM/DD)
-export const formatDate = (timestamp, locale = "zh-CN") => {
+export const formatDate = (timestamp: number | null | undefined, locale = "zh-CN"): string => {
   if (!timestamp) return '未知日期'
   const date = new Date(timestamp * 1000)
   return date.toLocaleDateString(locale, {
@@ -30,12 +30,12 @@ export const formatDate = (timestamp, locale = "zh-CN") => {
 };
 
 // 格式化时长 (HH:MM:SS)
-export const formatTime = (totalSeconds) => {
+export const formatTime = (totalSeconds: number): string => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60); // 确保是整数
+  const seconds = Math.floor(totalSeconds % 60);
 
-  const parts = [];
+  const parts: string[] = [];
   if (hours > 0) {
     parts.push(hours.toString().padStart(2, '0'));
   }
@@ -46,28 +46,27 @@ export const formatTime = (totalSeconds) => {
 };
 
 // 获取状态文本
-export const getStatusText = (status) => {
+export const getStatusText = (status: number): string => {
   return statusMap[status] || '未知状态';
 };
 
 // 生成视频URL
-export const getVideoUrl = (aid, bvid) => {
-  // 优先使用BV号，如果没有则使用AV号
+export const getVideoUrl = (aid?: number | null, bvid?: string | null): string => {
   if (bvid) {
     return `https://www.bilibili.com/video/${bvid}`;
   } else if (aid) {
     return `https://www.bilibili.com/video/av${aid}`;
   }
-  return '#'; // 如果都没有，返回占位符
+  return '#';
 };
 
 /**
  * 健壮的环境变量布尔值解析
  */
-export const parseEnvBoolean = (value) => {
+export const parseEnvBoolean = (value: unknown): boolean => {
   if (typeof value === 'boolean') return value
   if (!value) return false
-  
+
   const normalized = String(value).toLowerCase().trim()
   const truthy = ['true', '1', 'yes', 'on']
   return truthy.includes(normalized)
@@ -76,23 +75,22 @@ export const parseEnvBoolean = (value) => {
 /**
  * 计算去重后的 UP 主列表
  */
-export const computeUploaderList = (videos) => {
+export const computeUploaderList = (videos: { uploader_name?: string }[]): string[] => {
   if (!Array.isArray(videos)) return []
-  
+
   const names = videos
     .map(v => v.uploader_name)
-    .filter(name => name)
-  
+    .filter((name): name is string => !!name)
+
   return ['所有UP主', ...[...new Set(names)].sort((a, b) => a.localeCompare(b, 'zh-CN'))]
 }
 
 /**
  * 格式化详细时间 (YYYY/MM/DD HH:mm)
- * 用于页面底部的“数据更新于...”
  */
-export const formatDateTime = (dateObj) => {
+export const formatDateTime = (dateObj: Date | null | undefined): string => {
   if (!dateObj || isNaN(dateObj.getTime())) return '未知时间'
-  
+
   return dateObj.toLocaleString('zh-CN', {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hour12: false

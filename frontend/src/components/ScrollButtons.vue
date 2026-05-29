@@ -26,8 +26,8 @@
   </div>
 </template>
 
-<script>
-import { useScroll } from '../composables/useScroll.js';
+<script lang="ts">
+import { useScroll } from '../composables/useScroll';
 
 export default {
   name: 'ScrollButtons',

@@ -162,11 +162,11 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { computed } from 'vue';
 import VideoRow from './VideoRow.vue';
-import { useSorting } from '../composables/useSorting.js';
-import { usePagination } from '../composables/usePagination.js';
+import { useSorting, type SortableVideo } from '../composables/useSorting';
+import { usePagination } from '../composables/usePagination';
 
 export default {
   name: 'VideoTable',
@@ -195,7 +195,7 @@ export default {
 
   setup(props) {
     // 将 props.videos 包装成一个 computed ref 传给 composable
-    const videosRef = computed(() => props.videos);
+    const videosRef = computed(() => props.videos as SortableVideo[]);
     // 获取排序逻辑和排序后的数据
     const { sortedVideos, handleSort, getSortClass } = useSorting(videosRef);
     // 将排序后的数据交给分页逻辑处理

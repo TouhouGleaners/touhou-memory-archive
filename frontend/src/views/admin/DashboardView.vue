@@ -51,22 +51,34 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '../../composables/useAuth.js'
-import { apiGet, apiPatch } from '../../api/client.js'
-import { touhouStatusOptions } from '../../utils/index.js'
+import { useAuth } from '../../composables/useAuth'
+import { apiGet, apiPatch } from '../../api/client'
+import { touhouStatusOptions } from '../../utils/index'
+
+interface VideoItem {
+  bvid: string
+  title: string
+  uploader_name: string
+  touhou_status: number
+}
+
+interface Toast {
+  text: string
+  type: 'success' | 'error'
+}
 
 const router = useRouter()
 const { state, isLoggedIn, logout } = useAuth()
 
-const videos = ref([])
+const videos = ref<VideoItem[]>([])
 const loading = ref(true)
 const error = ref('')
-const toast = ref(null)
-let toastTimer = null
-const savingBvid = ref(null)
+const toast = ref<Toast | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+const savingBvid = ref<string | null>(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
 const statusCssMap = Object.fromEntries(touhouStatusOptions.map(o => [
@@ -74,15 +86,15 @@ const statusCssMap = Object.fromEntries(touhouStatusOptions.map(o => [
   o.touhou === true ? 'status-touhou' : o.touhou === false ? 'status-non-touhou' : 'status-unknown',
 ]))
 
-function statusClass(s) {
+function statusClass(s: number) {
   return statusCssMap[s] || 'status-unknown'
 }
 
-function getVideoUrl(bvid) {
+function getVideoUrl(bvid: string) {
   return `https://www.bilibili.com/video/${bvid}`
 }
 
-function showToast(text, type = 'success') {
+function showToast(text: string, type: 'success' | 'error' = 'success') {
   if (toastTimer) clearTimeout(toastTimer)
   toast.value = { text, type }
   toastTimer = setTimeout(() => { toast.value = null }, 3000)
@@ -92,7 +104,7 @@ async function loadVideos() {
   loading.value = true
   error.value = ''
   try {
-    videos.value = await apiGet('/videos')
+    videos.value = await apiGet<VideoItem[]>('/videos')
   } catch (e) {
     error.value = e instanceof Error && e.message ? e.message : '加载失败'
   } finally {
@@ -100,8 +112,9 @@ async function loadVideos() {
   }
 }
 
-async function handleStatusChange(video, event) {
-  const val = parseInt(event.target.value, 10)
+async function handleStatusChange(video: VideoItem, event: Event) {
+  const target = event.target as HTMLSelectElement
+  const val = parseInt(target.value, 10)
   if (isNaN(val) || val === video.touhou_status) return
   savingBvid.value = video.bvid
   try {
@@ -109,7 +122,7 @@ async function handleStatusChange(video, event) {
     video.touhou_status = val
     showToast(`已将 ${video.bvid} 状态改为 ${statusLabelMap[val] || val}`)
   } catch (e) {
-    event.target.value = video.touhou_status
+    target.value = String(video.touhou_status)
     showToast(`修改失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
   } finally {
     savingBvid.value = null

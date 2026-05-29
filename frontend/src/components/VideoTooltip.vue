@@ -45,7 +45,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { ref, computed } from 'vue'
 
 export default {
@@ -59,8 +59,8 @@ export default {
   setup(props) {
     const visible = ref(false)
     const imageError = ref(false)
-    const showDelay = ref(null)
-    const hideDelay = ref(null)
+    const showDelay = ref<ReturnType<typeof setTimeout> | null>(null)
+    const hideDelay = ref<ReturnType<typeof setTimeout> | null>(null)
     const showOnLeft = ref(false)
 
     // 检查是否有tooltip内容
@@ -69,9 +69,9 @@ export default {
     })
 
     // 检测应该显示在左侧还是右侧
-    const checkPosition = (event) => {
+    const checkPosition = (event: MouseEvent) => {
       const screenWidth = window.innerWidth
-      const elementRect = event.target.getBoundingClientRect()
+      const elementRect = (event.target as HTMLElement).getBoundingClientRect()
       const tooltipWidth = 400 // 预估的tooltip宽度
       
       // 如果右侧空间不够，就显示在左侧
@@ -79,12 +79,12 @@ export default {
     }
 
     // 显示提示框
-    const showTooltip = (event) => {
+    const showTooltip = (event: MouseEvent) => {
       if (!hasTooltipContent.value) return
-      
+
       checkPosition(event)
-      
-      clearTimeout(hideDelay.value)
+
+      if (hideDelay.value) clearTimeout(hideDelay.value)
       showDelay.value = setTimeout(() => {
         visible.value = true
       }, 300) // 300ms延迟显示
@@ -92,30 +92,30 @@ export default {
 
     // 隐藏提示框
     const hideTooltip = () => {
-      clearTimeout(showDelay.value)
+      if (showDelay.value) clearTimeout(showDelay.value)
       hideDelay.value = setTimeout(() => {
         visible.value = false
       }, 100) // 100ms延迟隐藏
     }
 
     // 截断描述文本
-    const truncateDescription = (text) => {
+    const truncateDescription = (text: string) => {
       if (!text) return ''
       const maxLength = 200
       return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
     }
 
     // 处理图片加载错误
-    const handleImageError = (event) => {
+    const handleImageError = (event: Event) => {
       imageError.value = true
-      event.target.style.display = 'none'
+      ;(event.target as HTMLElement).style.display = 'none'
     }
 
     // 动态计算提示框位置
     const tooltipStyle = computed(() => {
       if (showOnLeft.value) {
         return {
-          position: 'absolute',
+          position: 'absolute' as const,
           top: '0',
           right: '100%',
           marginRight: '12px',
@@ -123,7 +123,7 @@ export default {
         }
       } else {
         return {
-          position: 'absolute',
+          position: 'absolute' as const,
           top: '0',
           left: '100%',
           marginLeft: '12px',
