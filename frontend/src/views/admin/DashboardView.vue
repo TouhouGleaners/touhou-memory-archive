@@ -37,7 +37,7 @@
               <select
                 :value="v.touhou_status"
                 :disabled="savingBvid === v.bvid"
-                @change="handleStatusChange(v, $event.target.value)"
+                @change="handleStatusChange(v, $event)"
               >
                 <option v-for="opt in touhouStatusOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth.js'
 import { apiGet, apiPatch } from '../../api/client.js'
@@ -98,8 +98,8 @@ async function loadVideos() {
   }
 }
 
-async function handleStatusChange(video, newStatus) {
-  const val = parseInt(newStatus, 10)
+async function handleStatusChange(video, event) {
+  const val = parseInt(event.target.value, 10)
   if (isNaN(val) || val === video.touhou_status) return
   savingBvid.value = video.bvid
   try {
@@ -107,6 +107,7 @@ async function handleStatusChange(video, newStatus) {
     video.touhou_status = val
     showToast(`已将 ${video.bvid} 状态改为 ${statusLabelMap[val] || val}`)
   } catch (e) {
+    event.target.value = video.touhou_status
     showToast(`修改失败: ${e instanceof Error ? e.message : '未知错误'}`, 'error')
   } finally {
     savingBvid.value = null
@@ -123,6 +124,7 @@ watch(isLoggedIn, (val) => {
 })
 
 onMounted(loadVideos)
+onUnmounted(() => { if (toastTimer) clearTimeout(toastTimer) })
 </script>
 
 <style scoped>
