@@ -64,7 +64,8 @@ const { state, isLoggedIn, logout } = useAuth()
 const videos = ref([])
 const loading = ref(true)
 const error = ref('')
-const toast = ref('')
+const toast = ref(null)
+let toastTimer = null
 const savingBvid = ref(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
@@ -80,8 +81,9 @@ function getVideoUrl(bvid) {
 }
 
 function showToast(text, type = 'success') {
+  if (toastTimer) clearTimeout(toastTimer)
   toast.value = { text, type }
-  setTimeout(() => { toast.value = '' }, 3000)
+  toastTimer = setTimeout(() => { toast.value = null }, 3000)
 }
 
 async function loadVideos() {

@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# 前端对应定义在 frontend/src/utils/index.js 的 touhouStatusOptions，修改时需同步
 class TouhouStatus(IntEnum):
     UNKNOWN = 0
     AUTO_TOUHOU = 1

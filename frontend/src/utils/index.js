@@ -9,6 +9,7 @@ export const statusMap = {
 };
 
 // 东方状态选项（管理后台用）
+// 后端对应定义在 backend/src/app/api/admin.py 的 TouhouStatus IntEnum，修改时需同步
 export const touhouStatusOptions = [
   { value: 0, label: "未检测" },
   { value: 1, label: "自动东方" },
