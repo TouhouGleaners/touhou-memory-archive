@@ -8,6 +8,16 @@ export const statusMap = {
   5: "自动+人工检测为东方"
 };
 
+// 东方状态选项（管理后台用）
+// 后端对应定义在 backend/src/app/api/admin.py 的 TouhouStatus IntEnum，修改时需同步
+export const touhouStatusOptions = [
+  { value: 0, label: "未检测",     touhou: null },
+  { value: 1, label: "自动东方",   touhou: true },
+  { value: 2, label: "自动非东方", touhou: false },
+  { value: 3, label: "人工东方",   touhou: true },
+  { value: 4, label: "人工非东方", touhou: false },
+];
+
 // 格式化日期 (YYYY/MM/DD)
 export const formatDate = (timestamp, locale = "zh-CN") => {
   if (!timestamp) return '未知日期'
