@@ -1,7 +1,8 @@
 import logging
+from enum import IntEnum
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.auth import require_role
@@ -14,8 +15,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class TouhouStatus(IntEnum):
+    UNKNOWN = 0
+    AUTO_TOUHOU = 1
+    AUTO_NON_TOUHOU = 2
+    MANUAL_TOUHOU = 3
+    MANUAL_NON_TOUHOU = 4
+
+
 class TouhouStatusUpdate(BaseModel):
-    touhou_status: int = Field(ge=0, le=4)  # 0:未检测 1:自动东方 2:自动非东方 3:人工东方 4:人工非东方
+    touhou_status: TouhouStatus
 
 
 @router.patch("/videos/{bvid}/touhou-status")

@@ -10,11 +10,11 @@ export const statusMap = {
 
 // 东方状态选项（管理后台用）
 export const touhouStatusOptions = [
-  { value: 0, label: "未检测",    cssClass: "status-unknown" },
-  { value: 1, label: "自动东方",  cssClass: "status-touhou" },
-  { value: 2, label: "自动非东方", cssClass: "status-non-touhou" },
-  { value: 3, label: "人工东方",  cssClass: "status-touhou" },
-  { value: 4, label: "人工非东方", cssClass: "status-non-touhou" },
+  { value: 0, label: "未检测" },
+  { value: 1, label: "自动东方" },
+  { value: 2, label: "自动非东方" },
+  { value: 3, label: "人工东方" },
+  { value: 4, label: "人工非东方" },
 ];
 
 // 格式化日期 (YYYY/MM/DD)

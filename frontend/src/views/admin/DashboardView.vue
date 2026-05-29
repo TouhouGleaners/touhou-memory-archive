@@ -68,10 +68,11 @@ const toast = ref('')
 const savingBvid = ref(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
-const statusClassMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.cssClass]))
+
+const STATUS_CSS = { 1: 'status-touhou', 2: 'status-non-touhou', 3: 'status-touhou', 4: 'status-non-touhou' }
 
 function statusClass(s) {
-  return statusClassMap[s] || 'status-unknown'
+  return STATUS_CSS[s] || 'status-unknown'
 }
 
 function getVideoUrl(bvid) {
