@@ -12,7 +12,7 @@
           </div>
           <div class="form-group">
             <label for="password">密码</label>
-            <Password id="password" v-model="password" :feedback="false" toggleMask required fluid />
+            <Password id="password" v-model="password" :feedback="false" toggleMask required fluid autocomplete="current-password" />
           </div>
           <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
           <Button type="submit" label="登录" :loading="loading" fluid />

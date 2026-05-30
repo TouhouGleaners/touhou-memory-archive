@@ -10,7 +10,11 @@
     <main class="dashboard-content">
       <h3>视频管理</h3>
       <Toast />
+      <Message v-if="loadError" severity="error" :closable="false" style="margin-bottom: 1rem">
+        {{ loadError }}
+      </Message>
       <DataTable
+        v-else
         :value="videos"
         :loading="loading"
         dataKey="bvid"
@@ -65,6 +69,7 @@ import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Select from 'primevue/select'
 import Toast from 'primevue/toast'
+import Message from 'primevue/message'
 import { useAuth } from '../../composables/useAuth'
 import { apiGet, apiPatch } from '../../api/client'
 import { touhouStatusOptions } from '../../utils/index'
@@ -82,6 +87,7 @@ const { state, isLoggedIn, logout } = useAuth()
 
 const videos = ref<VideoItem[]>([])
 const loading = ref(true)
+const loadError = ref('')
 const savingBvid = ref<string | null>(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
@@ -100,10 +106,11 @@ function getVideoUrl(bvid: string) {
 
 async function loadVideos() {
   loading.value = true
+  loadError.value = ''
   try {
     videos.value = await apiGet<VideoItem[]>('/videos')
   } catch (e) {
-    toast.add({ severity: 'error', summary: '加载失败', detail: e instanceof Error ? e.message : '未知错误', life: 5000 })
+    loadError.value = e instanceof Error ? e.message : '加载失败'
   } finally {
     loading.value = false
   }
