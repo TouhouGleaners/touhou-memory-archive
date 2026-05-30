@@ -48,7 +48,7 @@ function computeStats() {
   stats.value.uploaders = new Set(videos.value.map(v => v.uploader_name)).size
 }
 
-watch(videos, computeStats)
+watch(videos, computeStats, { immediate: true })
 onMounted(loadVideos)
 </script>
 
