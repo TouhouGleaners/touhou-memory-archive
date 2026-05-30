@@ -6,11 +6,11 @@
         <span class="sidebar-title">TMA 管理</span>
       </div>
       <nav class="sidebar-nav">
-        <router-link to="/admin" class="nav-item" exact-active-class="active">
+        <router-link :to="{ name: 'admin-home' }" class="nav-item" exact-active-class="active">
           <i class="pi pi-home" />
           <span>仪表盘</span>
         </router-link>
-        <router-link to="/admin/videos" class="nav-item" active-class="active">
+        <router-link :to="{ name: 'admin-videos' }" class="nav-item" active-class="active">
           <i class="pi pi-video" />
           <span>视频管理</span>
         </router-link>

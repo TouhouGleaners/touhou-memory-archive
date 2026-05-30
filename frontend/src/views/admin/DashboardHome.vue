@@ -33,25 +33,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import Card from 'primevue/card'
-import { apiGet } from '../../api/client'
+import { useVideos, isTouhou } from '../../composables/useVideos'
 
-interface VideoItem {
-  bvid: string
-  touhou_status: number
-  uploader_name: string
-}
-
+const { videos, loadVideos } = useVideos()
 const stats = ref({ total: 0, touhou: 0, uploaders: 0 })
 
 onMounted(async () => {
-  try {
-    const videos = await apiGet<VideoItem[]>('/videos')
-    stats.value.total = videos.length
-    stats.value.touhou = videos.filter(v => v.touhou_status === 1 || v.touhou_status === 3).length
-    stats.value.uploaders = new Set(videos.map(v => v.uploader_name)).size
-  } catch {
-    // 统计加载失败不影响页面
-  }
+  await loadVideos()
+  stats.value.total = videos.value.length
+  stats.value.touhou = videos.value.filter(v => isTouhou(v.touhou_status)).length
+  stats.value.uploaders = new Set(videos.value.map(v => v.uploader_name)).size
 })
 </script>
 

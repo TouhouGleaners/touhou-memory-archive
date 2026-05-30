@@ -59,21 +59,13 @@ import Tag from 'primevue/tag'
 import Select from 'primevue/select'
 import Toast from 'primevue/toast'
 import Message from 'primevue/message'
-import { apiGet, apiPatch } from '../../api/client'
+import { apiPatch } from '../../api/client'
 import { touhouStatusOptions } from '../../utils/index'
-
-interface VideoItem {
-  bvid: string
-  title: string
-  uploader_name: string
-  touhou_status: number
-}
+import { useVideos, type VideoItem } from '../../composables/useVideos'
 
 const toast = useToast()
+const { videos, loading, loadError, loadVideos } = useVideos()
 
-const videos = ref<VideoItem[]>([])
-const loading = ref(true)
-const loadError = ref('')
 const savingBvid = ref<string | null>(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
@@ -88,18 +80,6 @@ function statusSeverity(s: number) {
 
 function getVideoUrl(bvid: string) {
   return `https://www.bilibili.com/video/${bvid}`
-}
-
-async function loadVideos() {
-  loading.value = true
-  loadError.value = ''
-  try {
-    videos.value = await apiGet<VideoItem[]>('/videos')
-  } catch (e) {
-    loadError.value = e instanceof Error ? e.message : '加载失败'
-  } finally {
-    loading.value = false
-  }
 }
 
 async function handleStatusChange(video: VideoItem, newVal: number) {
