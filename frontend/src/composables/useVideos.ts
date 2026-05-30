@@ -24,8 +24,8 @@ const loadError = ref('')
 let loaded = false
 
 export function useVideos() {
-  async function loadVideos() {
-    if (loaded) return  // 已加载过，不重复请求
+  async function loadVideos(force = false) {
+    if (loaded && !force) return
     loading.value = true
     loadError.value = ''
     try {
