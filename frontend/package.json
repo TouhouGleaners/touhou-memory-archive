@@ -11,6 +11,9 @@
     "deploy": "npm run build && git add docs && git commit -m 更新部署 && git push"
   },
   "dependencies": {
+    "@primevue/themes": "^4.5.4",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.5",
     "vue": "^3.4.0",
     "vue-router": "^4.6.4"
   },

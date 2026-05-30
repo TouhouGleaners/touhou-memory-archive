@@ -1,24 +1,35 @@
 <template>
   <div class="login-container">
-    <form class="login-form" @submit.prevent="handleLogin">
-      <h2>管理员登录</h2>
-      <div class="form-group">
-        <label for="username">用户名</label>
-        <input id="username" v-model="username" type="text" required autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label for="password">密码</label>
-        <input id="password" v-model="password" type="password" required autocomplete="current-password" />
-      </div>
-      <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
-    </form>
+    <Card class="login-card">
+      <template #title>
+        <h2>管理员登录</h2>
+      </template>
+      <template #content>
+        <form @submit.prevent="handleLogin" class="login-form">
+          <div class="form-group">
+            <label for="username">用户名</label>
+            <InputText id="username" v-model="username" type="text" required autocomplete="username" fluid />
+          </div>
+          <div class="form-group">
+            <label for="password">密码</label>
+            <Password id="password" v-model="password" :feedback="false" toggleMask required fluid autocomplete="current-password" />
+          </div>
+          <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+          <Button type="submit" label="登录" :loading="loading" fluid />
+        </form>
+      </template>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import Card from 'primevue/card'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import Button from 'primevue/button'
+import Message from 'primevue/message'
 import { useAuth } from '../../composables/useAuth'
 
 const router = useRouter()
@@ -51,73 +62,33 @@ async function handleLogin() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--surface-ground);
+}
+
+.login-card {
+  width: 360px;
+}
+
+.login-card h2 {
+  margin: 0;
+  text-align: center;
+  color: var(--text-color);
 }
 
 .login-form {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  width: 320px;
-}
-
-.login-form h2 {
-  margin: 0 0 1.5rem;
-  text-align: center;
-  color: #333;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 0.25rem;
   font-size: 0.875rem;
-  color: #555;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #fb7299;
-}
-
-button {
-  width: 100%;
-  padding: 0.6rem;
-  background: #fb7299;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-top: 0.5rem;
-}
-
-button:hover {
-  background: #e85a84;
-}
-
-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.error {
-  color: #e74c3c;
-  font-size: 0.875rem;
-  margin: 0.5rem 0;
-  text-align: center;
+  color: var(--text-color-secondary);
 }
 </style>

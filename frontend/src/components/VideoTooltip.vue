@@ -46,7 +46,7 @@
 </template>
 
 <script lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 
 export default {
   name: 'VideoTooltip',
@@ -130,6 +130,11 @@ export default {
           zIndex: 1000
         }
       }
+    })
+
+    onUnmounted(() => {
+      if (showDelay.value) clearTimeout(showDelay.value)
+      if (hideDelay.value) clearTimeout(hideDelay.value)
     })
 
     return {

@@ -1,11 +1,8 @@
 {
   "name": "touhou-memory-archive",
   "private": true,
-  "workspaces": [
-    "frontend"
-  ],
   "scripts": {
-    "dev": "npm run -w frontend dev",
-    "build": "npm run -w frontend build"
+    "dev": "npm run --prefix frontend dev",
+    "build": "npm run --prefix frontend build"
   }
 }
