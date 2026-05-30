@@ -14,6 +14,10 @@
           <i class="pi pi-video" />
           <span>视频管理</span>
         </router-link>
+        <router-link :to="{ name: 'admin-users' }" class="nav-item" active-class="active">
+          <i class="pi pi-users" />
+          <span>用户管理</span>
+        </router-link>
       </nav>
     </aside>
 
