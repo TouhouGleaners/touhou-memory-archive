@@ -13,6 +13,7 @@
       <DataTable
         :value="videos"
         :loading="loading"
+        dataKey="bvid"
         paginator
         :rows="20"
         :rowsPerPageOptions="[10, 20, 50, 100]"
@@ -20,7 +21,6 @@
         sortMode="multiple"
         removableSort
         responsiveLayout="scroll"
-        :globalFilterFields="['title', 'uploader_name', 'bvid']"
         emptyMessage="暂无视频数据"
       >
         <Column field="title" header="标题" sortable style="min-width: 300px">
@@ -44,7 +44,7 @@
               optionLabel="label"
               optionValue="value"
               :disabled="savingBvid === data.bvid"
-              @update:modelValue="(val: number) => handleStatusChange(data, val)"
+              @update:modelValue="(val) => handleStatusChange(data, val)"
               size="small"
               style="width: 100%"
             />
@@ -85,11 +85,13 @@ const loading = ref(true)
 const savingBvid = ref<string | null>(null)
 
 const statusLabelMap = Object.fromEntries(touhouStatusOptions.map(o => [o.value, o.label]))
+const statusSeverityMap = Object.fromEntries(touhouStatusOptions.map(o => [
+  o.value,
+  o.touhou === true ? 'success' : o.touhou === false ? 'danger' : 'secondary',
+]))
 
 function statusSeverity(s: number) {
-  if (s === 1 || s === 3) return 'success'
-  if (s === 2 || s === 4) return 'danger'
-  return 'secondary'
+  return statusSeverityMap[s] || 'secondary'
 }
 
 function getVideoUrl(bvid: string) {
