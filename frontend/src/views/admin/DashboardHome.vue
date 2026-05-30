@@ -1,7 +1,9 @@
 <template>
   <div class="dashboard-home">
     <h3>仪表盘</h3>
-    <div class="cards">
+    <Message v-if="loadError" severity="error" :closable="false">{{ loadError }}</Message>
+    <ProgressSpinner v-else-if="loading" style="width: 50px; height: 50px" />
+    <div v-else class="cards">
       <Card>
         <template #title>
           <div class="card-title"><i class="pi pi-video" /> 视频总数</div>
@@ -31,19 +33,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import Card from 'primevue/card'
+import Message from 'primevue/message'
+import ProgressSpinner from 'primevue/progressspinner'
 import { useVideos, isTouhou } from '../../composables/useVideos'
 
-const { videos, loadVideos } = useVideos()
+const { videos, loading, loadError, loadVideos } = useVideos()
 const stats = ref({ total: 0, touhou: 0, uploaders: 0 })
 
-onMounted(async () => {
-  await loadVideos()
+function computeStats() {
   stats.value.total = videos.value.length
   stats.value.touhou = videos.value.filter(v => isTouhou(v.touhou_status)).length
   stats.value.uploaders = new Set(videos.value.map(v => v.uploader_name)).size
-})
+}
+
+watch(videos, computeStats)
+onMounted(loadVideos)
 </script>
 
 <style scoped>

@@ -17,16 +17,20 @@ export function isTouhou(status: number): boolean {
   return TOUHOU_VALUES.has(status)
 }
 
-export function useVideos() {
-  const videos = ref<VideoItem[]>([])
-  const loading = ref(true)
-  const loadError = ref('')
+// 模块级状态，所有调用方共享同一份数据
+const videos = ref<VideoItem[]>([])
+const loading = ref(true)
+const loadError = ref('')
+let loaded = false
 
+export function useVideos() {
   async function loadVideos() {
+    if (loaded) return  // 已加载过，不重复请求
     loading.value = true
     loadError.value = ''
     try {
       videos.value = await apiGet<VideoItem[]>('/videos')
+      loaded = true
     } catch (e) {
       loadError.value = e instanceof Error ? e.message : '加载失败'
     } finally {

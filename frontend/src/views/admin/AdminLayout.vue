@@ -37,22 +37,17 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import { useAuth } from '../../composables/useAuth'
 
 const router = useRouter()
-const { state, isLoggedIn, logout } = useAuth()
+const { state, logout } = useAuth()
 
 function handleLogout() {
   logout()
   router.push({ name: 'admin-login' })
 }
-
-watch(isLoggedIn, (val) => {
-  if (!val) router.push({ name: 'admin-login' })
-})
 </script>
 
 <style scoped>
