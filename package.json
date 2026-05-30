@@ -2,7 +2,7 @@
   "name": "touhou-memory-archive",
   "private": true,
   "scripts": {
-    "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build"
+    "dev": "npm run --prefix frontend dev",
+    "build": "npm run --prefix frontend build"
   }
 }
