@@ -3,7 +3,9 @@ import { useAuth } from '../composables/useAuth'
 
 const HomeView = () => import('../views/HomeView.vue')
 const LoginView = () => import('../views/admin/LoginView.vue')
-const DashboardView = () => import('../views/admin/DashboardView.vue')
+const AdminLayout = () => import('../views/admin/AdminLayout.vue')
+const DashboardHome = () => import('../views/admin/DashboardHome.vue')
+const VideoManage = () => import('../views/admin/VideoManage.vue')
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -20,9 +22,20 @@ const router = createRouter({
     },
     {
       path: '/admin',
-      name: 'admin',
-      component: DashboardView,
-      meta: { requiresAuth: true }
+      component: AdminLayout,
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'admin-home',
+          component: DashboardHome
+        },
+        {
+          path: 'videos',
+          name: 'admin-videos',
+          component: VideoManage
+        }
+      ]
     }
   ]
 })
