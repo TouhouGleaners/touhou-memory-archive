@@ -116,6 +116,26 @@ def update_user(
     if admin.id == current.id:
         raise HTTPException(status_code=400, detail="不能修改自己的账号")
 
+    # 检查是否会移除系统中最后一个激活的 superadmin
+    will_lose_superadmin = (
+        admin.role == AdminRole.SUPERADMIN
+        and admin.is_active
+        and (
+            (body.role is not None and body.role != AdminRole.SUPERADMIN)
+            or (body.is_active is not None and not body.is_active)
+        )
+    )
+    if will_lose_superadmin:
+        other_superadmins = session.exec(
+            select(Admin).where(
+                Admin.id != admin.id,
+                Admin.role == AdminRole.SUPERADMIN,
+                Admin.is_active == True,
+            )
+        ).first()
+        if not other_superadmins:
+            raise HTTPException(status_code=409, detail="不能降级/禁用最后一个激活的超级管理员")
+
     if body.role is not None:
         admin.role = body.role
     if body.is_active is not None:
@@ -141,6 +161,17 @@ def delete_user(
         raise HTTPException(status_code=404, detail=f"用户 {user_id} 不存在")
     if admin.id == current.id:
         raise HTTPException(status_code=400, detail="不能删除自己")
+
+    if admin.role == AdminRole.SUPERADMIN and admin.is_active:
+        other_superadmins = session.exec(
+            select(Admin).where(
+                Admin.id != admin.id,
+                Admin.role == AdminRole.SUPERADMIN,
+                Admin.is_active == True,
+            )
+        ).first()
+        if not other_superadmins:
+            raise HTTPException(status_code=409, detail="不能删除最后一个激活的超级管理员")
 
     session.delete(admin)
     session.commit()

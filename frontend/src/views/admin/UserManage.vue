@@ -11,7 +11,7 @@
       <Column field="username" header="用户名" />
       <Column field="role" header="角色" style="width: 120px">
         <template #body="{ data }">
-          <Tag :value="roleLabel(data.role)" :severity="data.role === 1 ? 'success' : 'info'" />
+          <Tag :value="roleLabel(data.role)" :severity="data.role === AdminRole.SUPERADMIN ? 'success' : 'info'" />
         </template>
       </Column>
       <Column field="is_active" header="状态" style="width: 100px">
@@ -90,6 +90,12 @@ interface AdminUser {
   created_at: number
 }
 
+// 与后端 AdminRole IntEnum 保持一致
+enum AdminRole {
+  SUPERADMIN = 1,
+  ADMIN = 2,
+}
+
 const toast = useToast()
 const users = ref<AdminUser[]>([])
 const loading = ref(true)
@@ -99,16 +105,16 @@ const showCreate = ref(false)
 const showEdit = ref(false)
 const editingUser = ref<AdminUser | null>(null)
 
-const form = ref({ username: '', password: '', role: 2 })
-const editForm = ref({ role: 2, password: '' })
+const form = ref({ username: '', password: '', role: AdminRole.ADMIN })
+const editForm = ref({ role: AdminRole.ADMIN, password: '' })
 
 const roleOptions = [
-  { label: '超级管理员', value: 1 },
-  { label: '管理员', value: 2 },
+  { label: '超级管理员', value: AdminRole.SUPERADMIN },
+  { label: '管理员', value: AdminRole.ADMIN },
 ]
 
 function roleLabel(role: number) {
-  return role === 1 ? '超级管理员' : '管理员'
+  return role === AdminRole.SUPERADMIN ? '超级管理员' : '管理员'
 }
 
 async function loadUsers() {
@@ -128,7 +134,7 @@ async function handleCreate() {
     await apiPost('/admin/users', form.value)
     toast.add({ severity: 'success', summary: '创建成功', life: 3000 })
     showCreate.value = false
-    form.value = { username: '', password: '', role: 2 }
+    form.value = { username: '', password: '', role: AdminRole.ADMIN }
     await loadUsers()
   } catch (e) {
     toast.add({ severity: 'error', summary: '创建失败', detail: e instanceof Error ? e.message : '未知错误', life: 5000 })
