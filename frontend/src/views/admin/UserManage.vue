@@ -5,6 +5,7 @@
       <Button label="添加用户" icon="pi pi-plus" @click="showCreate = true" />
     </div>
     <Toast />
+    <ConfirmDialog />
 
     <DataTable :value="users" :loading="loading" stripedRows emptyMessage="暂无用户">
       <Column field="id" header="ID" style="width: 60px" />
@@ -27,6 +28,7 @@
             text
             size="small"
             :severity="data.is_active ? 'danger' : 'success'"
+            :disabled="togglingId === data.id"
             @click="toggleActive(data)"
           />
           <Button icon="pi pi-trash" text size="small" severity="danger" @click="confirmDelete(data)" />
@@ -71,6 +73,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
@@ -80,12 +83,13 @@ import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Select from 'primevue/select'
 import Toast from 'primevue/toast'
+import ConfirmDialog from 'primevue/confirmdialog'
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../api/client'
 
 interface AdminUser {
   id: number
   username: string
-  role: number
+  role: AdminRole
   is_active: boolean
   created_at: number
 }
@@ -97,9 +101,11 @@ enum AdminRole {
 }
 
 const toast = useToast()
+const confirm = useConfirm()
 const users = ref<AdminUser[]>([])
 const loading = ref(true)
 const saving = ref(false)
+const togglingId = ref<number | null>(null)
 
 const showCreate = ref(false)
 const showEdit = ref(false)
@@ -167,19 +173,30 @@ async function handleEdit() {
 }
 
 async function toggleActive(user: AdminUser) {
+  if (togglingId.value) return
+  togglingId.value = user.id
   try {
     await apiPatch(`/admin/users/${user.id}`, { is_active: !user.is_active })
     toast.add({ severity: 'success', summary: user.is_active ? '已禁用' : '已启用', life: 3000 })
     await loadUsers()
   } catch (e) {
     toast.add({ severity: 'error', summary: '操作失败', detail: e instanceof Error ? e.message : '未知错误', life: 5000 })
+  } finally {
+    togglingId.value = null
   }
 }
 
 function confirmDelete(user: AdminUser) {
-  if (confirm(`确定要删除用户 ${user.username} 吗？`)) {
-    handleDelete(user)
-  }
+  confirm.require({
+    message: `确定要删除用户 ${user.username} 吗？`,
+    header: '确认删除',
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: '取消',
+    acceptLabel: '删除',
+    rejectClass: 'p-button-secondary p-button-outlined',
+    acceptClass: 'p-button-danger',
+    accept: () => handleDelete(user),
+  })
 }
 
 async function handleDelete(user: AdminUser) {
