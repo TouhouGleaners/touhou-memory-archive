@@ -6,6 +6,7 @@ const LoginView = () => import('../views/admin/LoginView.vue')
 const AdminLayout = () => import('../views/admin/AdminLayout.vue')
 const DashboardHome = () => import('../views/admin/DashboardHome.vue')
 const VideoManage = () => import('../views/admin/VideoManage.vue')
+const UserManage = () => import('../views/admin/UserManage.vue')
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -34,6 +35,11 @@ const router = createRouter({
           path: 'videos',
           name: 'admin-videos',
           component: VideoManage
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: UserManage
         }
       ]
     }

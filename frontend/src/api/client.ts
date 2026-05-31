@@ -73,3 +73,7 @@ export function apiPostForm<T = unknown>(path: string, formData: URLSearchParams
 export function apiPatch<T = unknown>(path: string, body?: unknown): Promise<T> {
   return request<T>('PATCH', path, { body })
 }
+
+export function apiDelete(path: string): Promise<void> {
+  return request<void>('DELETE', path)
+}
